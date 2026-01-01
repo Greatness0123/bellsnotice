@@ -1,0 +1,21 @@
+{
+  "name": "Bells Notice",
+  "short_name": "BellsNotice",
+  "description": "A modern notice board for staying informed",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/images/bells-20notice-20icon.jpg",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/images/bells-20notice-20icon.jpg",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
