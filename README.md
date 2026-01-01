@@ -4,7 +4,7 @@
 
 **A Modern Notice Board Platform for Educational Institutions**
 
-(/images/bells-20notice-20icon.jpg)
+![Project Logo](./public/images/bells-20notice-20icon.jpg)
 
 [![Next.js](https://img.shields.io/badge/Next.js-16.0.10-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.2.0-blue?style=for-the-badge&logo=react)](https://react.dev/)
@@ -442,16 +442,16 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
 
-## 👨‍💻 Author
+<!-- ## 👨‍💻 Author
 
 **Greatness**
 
 - GitHub: [@Greatness0123](https://github.com/Greatness0123)
-- Project Link: [https://github.com/Greatness0123/bellsnotice](https://github.com/Greatness0123/bellsnotice)
+- Project Link: [https://github.com/Greatness0123/bellsnotice](https://github.com/Greatness0123/bellsnotice) -->
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [Next.js](https://nextjs.org/) - The React framework
 - [Supabase](https://supabase.com/) - Backend as a Service
@@ -461,7 +461,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
 
-## 📞 Support
+## Support
 
 If you have any questions or need help, please:
 
@@ -471,7 +471,7 @@ If you have any questions or need help, please:
 
 ---
 
-## 🌟 Star History
+## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=Greatness0123/bellsnotice&type=Date)](https://star-history.com/#Greatness0123/bellsnotice&Date)
 
