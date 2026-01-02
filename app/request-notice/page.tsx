@@ -279,17 +279,26 @@ export default function RequestNoticePage() {
     setError(null)
   }
 
-  // Upload file to storage
+  // Upload file to storage - COMMENTED OUT FOR NOW
+  /*
   const uploadFile = async (file: File, bucket: string, path: string): Promise<string> => {
     const timestamp = Date.now()
     const randomId = Math.random().toString(36).substring(7)
-    const fileName = `${path}/${user?.id}/${timestamp}-${randomId}-${file.name}`
+    const fileExtension = file.name.split('.').pop()
+    const uniqueFileName = `${timestamp}-${randomId}.${fileExtension}`
+    const fileName = `${path}/${user?.id}/${uniqueFileName}`
     
     const { data, error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(fileName, file)
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
 
-    if (uploadError) throw uploadError
+    if (uploadError) {
+      console.error("Upload error:", uploadError)
+      throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`)
+    }
 
     const { data: urlData } = supabase.storage
       .from(bucket)
@@ -297,6 +306,7 @@ export default function RequestNoticePage() {
 
     return urlData.publicUrl
   }
+  */
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -350,10 +360,12 @@ export default function RequestNoticePage() {
       // Prepare all media items (both uploaded files and links)
       const mediaItems: MediaItem[] = []
 
+      // COMMENTED OUT: File upload functionality temporarily disabled
+      /*
       // Upload and add uploaded images
       for (const image of images) {
         try {
-          const url = await uploadFile(image, "bellsnotice", "requests/images")
+          const url = await uploadFile(image, "bellsnotice", "request/images")
           mediaItems.push({
             type: "image",
             url,
@@ -368,7 +380,7 @@ export default function RequestNoticePage() {
       // Upload and add uploaded videos
       for (const video of videos) {
         try {
-          const url = await uploadFile(video, "bellsnotice", "requests/videos")
+          const url = await uploadFile(video, "bellsnotice", "request/videos")
           mediaItems.push({
             type: "video",
             url,
@@ -383,7 +395,7 @@ export default function RequestNoticePage() {
       // Upload and add uploaded files
       for (const file of files) {
         try {
-          const url = await uploadFile(file, "bellsnotice", "requests/files")
+          const url = await uploadFile(file, "bellsnotice", "request/files")
           mediaItems.push({
             type: "file",
             url,
@@ -394,6 +406,7 @@ export default function RequestNoticePage() {
           console.error("Error uploading file:", file.name, err)
         }
       }
+      */
 
       // Add image URLs
       for (const imageUrl of imageUrls) {
@@ -594,11 +607,16 @@ export default function RequestNoticePage() {
                 </select>
               </div>
 
-              {/* Title */}
+              {/* Title - FIXED: Added container to prevent overflow */}
               <div className="grid gap-2">
-                <Label htmlFor="title" className="text-base font-semibold">
-                  Notice Title <span className="text-red-500">*</span>
-                </Label>
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="title" className="text-base font-semibold">
+                    Notice Title <span className="text-red-500">*</span>
+                  </Label>
+                  <span className="text-xs text-muted-foreground">
+                    {form.title.length}/200
+                  </span>
+                </div>
                 <Input
                   id="title"
                   name="title"
@@ -609,16 +627,18 @@ export default function RequestNoticePage() {
                   maxLength={200}
                   className="px-4 py-3"
                 />
-                <p className="text-xs text-muted-foreground">
-                  {form.title.length}/200 characters
-                </p>
               </div>
 
-              {/* Description */}
+              {/* Description - FIXED: Added container to prevent overflow */}
               <div className="grid gap-2">
-                <Label htmlFor="description" className="text-base font-semibold">
-                  Notice Description <span className="text-red-500">*</span>
-                </Label>
+                <div className="flex justify-between items-center">
+                  <Label htmlFor="description" className="text-base font-semibold">
+                    Notice Description <span className="text-red-500">*</span>
+                  </Label>
+                  <span className="text-xs text-muted-foreground">
+                    {form.description.length}/5000
+                  </span>
+                </div>
                 <Textarea
                   id="description"
                   name="description"
@@ -630,9 +650,6 @@ export default function RequestNoticePage() {
                   maxLength={5000}
                   className="px-4 py-3 resize-none"
                 />
-                <p className="text-xs text-muted-foreground">
-                  {form.description.length}/5000 characters
-                </p>
               </div>
 
               {/* Media Upload Section */}
@@ -664,11 +681,11 @@ export default function RequestNoticePage() {
                         <div className="mt-2 space-y-1">
                           {images.map((image, index) => (
                             <div key={index} className="flex items-center justify-between p-2 bg-neutral-50 dark:bg-neutral-900 rounded">
-                              <span className="text-sm truncate">{image.name}</span>
+                              <span className="text-sm truncate flex-1 mr-2">{image.name}</span>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveImage(index)}
-                                className="text-red-500 hover:text-red-700"
+                                className="text-red-500 hover:text-red-700 flex-shrink-0"
                               >
                                 <X size={16} />
                               </button>
@@ -679,7 +696,14 @@ export default function RequestNoticePage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="imageUrl">Images (Web Link)</Label>
+                      <div className="flex justify-between items-center">
+                        <Label htmlFor="imageUrl">Images (Web Link)</Label>
+                        {imageUrlInput.length > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            {imageUrlInput.length}/500
+                          </span>
+                        )}
+                      </div>
                       <div className="flex gap-2">
                         <Input
                           id="imageUrl"
@@ -687,6 +711,7 @@ export default function RequestNoticePage() {
                           value={imageUrlInput}
                           onChange={(e) => setImageUrlInput(e.target.value)}
                           onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddImageUrl())}
+                          maxLength={500}
                         />
                         <Button type="button" onClick={handleAddImageUrl} variant="outline">
                           <Plus size={16} />
@@ -696,11 +721,11 @@ export default function RequestNoticePage() {
                         <div className="mt-2 space-y-1">
                           {imageUrls.map((url, index) => (
                             <div key={index} className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-900/30 rounded">
-                              <span className="text-sm truncate">{url}</span>
+                              <span className="text-sm truncate flex-1 mr-2">{url}</span>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveImageUrl(index)}
-                                className="text-red-500 hover:text-red-700"
+                                className="text-red-500 hover:text-red-700 flex-shrink-0"
                               >
                                 <X size={16} />
                               </button>
@@ -726,11 +751,11 @@ export default function RequestNoticePage() {
                         <div className="mt-2 space-y-1">
                           {videos.map((video, index) => (
                             <div key={index} className="flex items-center justify-between p-2 bg-neutral-50 dark:bg-neutral-900 rounded">
-                              <span className="text-sm truncate">{video.name}</span>
+                              <span className="text-sm truncate flex-1 mr-2">{video.name}</span>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveVideo(index)}
-                                className="text-red-500 hover:text-red-700"
+                                className="text-red-500 hover:text-red-700 flex-shrink-0"
                               >
                                 <X size={16} />
                               </button>
@@ -741,7 +766,14 @@ export default function RequestNoticePage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="videoUrl">Videos (Web Link)</Label>
+                      <div className="flex justify-between items-center">
+                        <Label htmlFor="videoUrl">Videos (Web Link)</Label>
+                        {videoUrlInput.length > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            {videoUrlInput.length}/500
+                          </span>
+                        )}
+                      </div>
                       <div className="flex gap-2">
                         <Input
                           id="videoUrl"
@@ -749,6 +781,7 @@ export default function RequestNoticePage() {
                           value={videoUrlInput}
                           onChange={(e) => setVideoUrlInput(e.target.value)}
                           onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddVideoUrl())}
+                          maxLength={500}
                         />
                         <Button type="button" onClick={handleAddVideoUrl} variant="outline">
                           <Plus size={16} />
@@ -758,11 +791,11 @@ export default function RequestNoticePage() {
                         <div className="mt-2 space-y-1">
                           {videoUrls.map((url, index) => (
                             <div key={index} className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-900/30 rounded">
-                              <span className="text-sm truncate">{url}</span>
+                              <span className="text-sm truncate flex-1 mr-2">{url}</span>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveVideoUrl(index)}
-                                className="text-red-500 hover:text-red-700"
+                                className="text-red-500 hover:text-red-700 flex-shrink-0"
                               >
                                 <X size={16} />
                               </button>
@@ -788,11 +821,11 @@ export default function RequestNoticePage() {
                         <div className="mt-2 space-y-1">
                           {files.map((file, index) => (
                             <div key={index} className="flex items-center justify-between p-2 bg-neutral-50 dark:bg-neutral-900 rounded">
-                              <span className="text-sm truncate">{file.name}</span>
+                              <span className="text-sm truncate flex-1 mr-2">{file.name}</span>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveFile(index)}
-                                className="text-red-500 hover:text-red-700"
+                                className="text-red-500 hover:text-red-700 flex-shrink-0"
                               >
                                 <X size={16} />
                               </button>
@@ -803,7 +836,14 @@ export default function RequestNoticePage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="fileUrl">Documents (Web Link)</Label>
+                      <div className="flex justify-between items-center">
+                        <Label htmlFor="fileUrl">Documents (Web Link)</Label>
+                        {fileUrlInput.length > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            {fileUrlInput.length}/500
+                          </span>
+                        )}
+                      </div>
                       <div className="flex gap-2">
                         <Input
                           id="fileUrl"
@@ -811,6 +851,7 @@ export default function RequestNoticePage() {
                           value={fileUrlInput}
                           onChange={(e) => setFileUrlInput(e.target.value)}
                           onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddFileUrl())}
+                          maxLength={500}
                         />
                         <Button type="button" onClick={handleAddFileUrl} variant="outline">
                           <Plus size={16} />
@@ -820,11 +861,11 @@ export default function RequestNoticePage() {
                         <div className="mt-2 space-y-1">
                           {fileUrls.map((url, index) => (
                             <div key={index} className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-900/30 rounded">
-                              <span className="text-sm truncate">{url}</span>
+                              <span className="text-sm truncate flex-1 mr-2">{url}</span>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveFileUrl(index)}
-                                className="text-red-500 hover:text-red-700"
+                                className="text-red-500 hover:text-red-700 flex-shrink-0"
                               >
                                 <X size={16} />
                               </button>
@@ -932,8 +973,8 @@ export default function RequestNoticePage() {
                       </div>
                     </div>
 
-                    {/* Description */}
-                    <p className="text-sm text-muted-foreground line-clamp-2">
+                    {/* Description - FIXED: Added max-width and word-wrap */}
+                    <p className="text-sm text-muted-foreground line-clamp-2 break-words">
                       {request.description}
                     </p>
 
@@ -959,7 +1000,7 @@ export default function RequestNoticePage() {
                             </>
                           )}
                         </p>
-                        <p className="text-sm text-foreground">
+                        <p className="text-sm text-foreground break-words">
                           {request.response_message}
                         </p>
                       </div>
@@ -967,11 +1008,11 @@ export default function RequestNoticePage() {
 
                     {/* Timeline info */}
                     <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-neutral-200 dark:border-neutral-800 text-xs text-muted-foreground">
-                      <span>
+                      <span className="break-words">
                         Submitted: {new Date(request.created_at).toLocaleString()}
                       </span>
                       {request.responded_at && (
-                        <span>
+                        <span className="break-words">
                           Responded: {new Date(request.responded_at).toLocaleString()}
                         </span>
                       )}

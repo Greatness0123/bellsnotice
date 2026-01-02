@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LogOut, Trash2, Eye, Edit, Pencil, ArrowLeft, Upload, CheckCircle, XCircle, Clock, MessageSquare, User, BarChart3, FileText, Bell, Image as ImageIcon, Video, File, ExternalLink, X, ChevronLeft, ChevronRight, Play } from "lucide-react"
+import { LogOut, Trash2, Eye, Edit, Pencil, ArrowLeft, Upload, CheckCircle, XCircle, Clock, MessageSquare, User, BarChart3, FileText, Bell } from "lucide-react"
 import Link from "next/link"
 import {
   AlertDialog,
@@ -31,7 +31,6 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
 
 const DEPARTMENTS = {
   COLNAS: [
@@ -91,9 +90,6 @@ interface RequestMedia {
   request_id: string
   media_type: "image" | "video" | "file"
   media_url: string
-  is_link: boolean
-  file_name: string | null
-  created_at: string
 }
 
 interface NoticeRequest {
@@ -195,10 +191,6 @@ export default function DashboardPage() {
   const [profileImagePreview, setProfileImagePreview] = useState<string | null>(null)
   const [updateError, setUpdateError] = useState<string | null>(null)
   const [isUpdating, setIsUpdating] = useState(false)
-  const [selectedMediaRequest, setSelectedMediaRequest] = useState<NoticeRequest | null>(null)
-  const [isMediaViewerOpen, setIsMediaViewerOpen] = useState(false)
-  const [currentMediaIndex, setCurrentMediaIndex] = useState(0)
-  const [viewingMediaType, setViewingMediaType] = useState<"all" | "images" | "videos" | "files">("all")
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
@@ -263,128 +255,134 @@ export default function DashboardPage() {
 
       // Fetch requests if user is a rep
       if (profile?.user_type === "rep") {
-        await fetchRequestsWithMedia()
+        console.log("Fetching requests for rep:", user.id)
+        
+        // Fetch pending requests
+        const { data: pendingData, error: pendingError } = await supabase
+          .from("notice_requests")
+          .select("*")
+          .eq("rep_id", user.id)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+
+        if (pendingError) {
+          console.error("Error fetching pending requests:", pendingError)
+        } else {
+          console.log("Pending requests found:", pendingData?.length || 0)
+          
+          // Manually fetch requester data and media for each request
+          if (pendingData && pendingData.length > 0) {
+            const requestsWithData = await Promise.all(
+              pendingData.map(async (request: SupabaseNoticeRequest) => {
+                const { data: requesterData } = await supabase
+                  .from("profiles")
+                  .select("display_name, email")
+                  .eq("id", request.requester_id)
+                  .single()
+                
+                // Get email from auth.users if not in profile
+                let email = requesterData?.email || ""
+                if (!email) {
+                  const { data: userData } = await supabase
+                    .from("profiles")
+                    .select("id")
+                    .eq("id", request.requester_id)
+                    .single()
+                  
+                  if (userData) {
+                    const { data: authData } = await supabase.auth.admin.getUserById(request.requester_id)
+                    email = authData?.user?.email || ""
+                  }
+                }
+
+                // Fetch media for this request
+                const { data: mediaData } = await supabase
+                  .from("notice_request_media")
+                  .select("*")
+                  .eq("request_id", request.id)
+                
+                return {
+                  ...request,
+                  requester: {
+                    display_name: requesterData?.display_name || null,
+                    email: email
+                  },
+                  media: mediaData || []
+                } as NoticeRequest
+              })
+            )
+            
+            setPendingRequests(requestsWithData)
+          } else {
+            setPendingRequests([])
+          }
+        }
+
+        // Fetch processed requests
+        const { data: processedData, error: processedError } = await supabase
+          .from("notice_requests")
+          .select("*")
+          .eq("rep_id", user.id)
+          .in("status", ["approved", "rejected"])
+          .order("responded_at", { ascending: false })
+
+        if (processedError) {
+          console.error("Error fetching processed requests:", processedError)
+        } else {
+          console.log("Processed requests found:", processedData?.length || 0)
+          
+          // Manually fetch requester data and media for each request
+          if (processedData && processedData.length > 0) {
+            const requestsWithData = await Promise.all(
+              processedData.map(async (request: SupabaseNoticeRequest) => {
+                const { data: requesterData } = await supabase
+                  .from("profiles")
+                  .select("display_name, email")
+                  .eq("id", request.requester_id)
+                  .single()
+                
+                // Get email from auth.users if not in profile
+                let email = requesterData?.email || ""
+                if (!email) {
+                  const { data: userData } = await supabase
+                    .from("profiles")
+                    .select("id")
+                    .eq("id", request.requester_id)
+                    .single()
+                  
+                  if (userData) {
+                    const { data: authData } = await supabase.auth.admin.getUserById(request.requester_id)
+                    email = authData?.user?.email || ""
+                  }
+                }
+
+                // Fetch media for this request
+                const { data: mediaData } = await supabase
+                  .from("notice_request_media")
+                  .select("*")
+                  .eq("request_id", request.id)
+                
+                return {
+                  ...request,
+                  requester: {
+                    display_name: requesterData?.display_name || null,
+                    email: email
+                  },
+                  media: mediaData || []
+                } as NoticeRequest
+              })
+            )
+            
+            setProcessedRequests(requestsWithData)
+          } else {
+            setProcessedRequests([])
+          }
+        }
       }
     }
 
     fetchUserData()
   }, [user, profile, supabase])
-
-  const fetchRequestsWithMedia = async () => {
-    if (!user) return
-
-    console.log("Fetching requests with media for rep:", user.id)
-    
-    // Fetch pending requests with media
-    const { data: pendingData, error: pendingError } = await supabase
-      .from("notice_requests")
-      .select("*")
-      .eq("rep_id", user.id)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false })
-
-    if (pendingError) {
-      console.error("Error fetching pending requests:", pendingError)
-    } else {
-      console.log("Pending requests found:", pendingData?.length || 0)
-      
-      if (pendingData && pendingData.length > 0) {
-        const requestsWithDetails = await Promise.all(
-          pendingData.map(async (request: SupabaseNoticeRequest) => {
-            const [requesterData, mediaData] = await Promise.all([
-              // Fetch requester info
-              supabase
-                .from("profiles")
-                .select("display_name, email")
-                .eq("id", request.requester_id)
-                .single(),
-              // Fetch media attachments
-              supabase
-                .from("notice_request_media")
-                .select("*")
-                .eq("request_id", request.id)
-                .order("created_at", { ascending: true })
-            ])
-
-            // Get email from auth.users if not in profile
-            let email = requesterData.data?.email || ""
-            if (!email) {
-              const { data: authData } = await supabase.auth.admin.getUserById(request.requester_id)
-              email = authData?.user?.email || ""
-            }
-            
-            return {
-              ...request,
-              requester: {
-                display_name: requesterData.data?.display_name || null,
-                email: email
-              },
-              media: mediaData.data || []
-            } as NoticeRequest
-          })
-        )
-        
-        setPendingRequests(requestsWithDetails)
-      } else {
-        setPendingRequests([])
-      }
-    }
-
-    // Fetch processed requests with media
-    const { data: processedData, error: processedError } = await supabase
-      .from("notice_requests")
-      .select("*")
-      .eq("rep_id", user.id)
-      .in("status", ["approved", "rejected"])
-      .order("responded_at", { ascending: false })
-
-    if (processedError) {
-      console.error("Error fetching processed requests:", processedError)
-    } else {
-      console.log("Processed requests found:", processedData?.length || 0)
-      
-      if (processedData && processedData.length > 0) {
-        const requestsWithDetails = await Promise.all(
-          processedData.map(async (request: SupabaseNoticeRequest) => {
-            const [requesterData, mediaData] = await Promise.all([
-              // Fetch requester info
-              supabase
-                .from("profiles")
-                .select("display_name, email")
-                .eq("id", request.requester_id)
-                .single(),
-              // Fetch media attachments
-              supabase
-                .from("notice_request_media")
-                .select("*")
-                .eq("request_id", request.id)
-                .order("created_at", { ascending: true })
-            ])
-
-            // Get email from auth.users if not in profile
-            let email = requesterData.data?.email || ""
-            if (!email) {
-              const { data: authData } = await supabase.auth.admin.getUserById(request.requester_id)
-              email = authData?.user?.email || ""
-            }
-            
-            return {
-              ...request,
-              requester: {
-                display_name: requesterData.data?.display_name || null,
-                email: email
-              },
-              media: mediaData.data || []
-            } as NoticeRequest
-          })
-        )
-        
-        setProcessedRequests(requestsWithDetails)
-      } else {
-        setProcessedRequests([])
-      }
-    }
-  }
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -534,13 +532,11 @@ export default function DashboardPage() {
               notice_id: newNotice.id,
               media_type: media.media_type,
               media_url: media.media_url,
-              is_link: media.is_link,
-              file_name: media.file_name
             })
         }
       }
       
-      // UPDATE: Use 'approved' instead of 'accepted'
+      // Update status to 'approved'
       const { error: updateError } = await supabase
         .from("notice_requests")
         .update({
@@ -554,7 +550,7 @@ export default function DashboardPage() {
       if (updateError) throw updateError
 
       // Refresh requests
-      await fetchRequestsWithMedia()
+      await refreshRequests()
 
       // Refresh notices
       const { data: noticesData } = await supabase
@@ -580,7 +576,7 @@ export default function DashboardPage() {
     setIsProcessing(true)
 
     try {
-      // UPDATE: Use 'rejected' instead of 'declined'
+      // Update status to 'rejected'
       const { error: updateError } = await supabase
         .from("notice_requests")
         .update({
@@ -593,7 +589,7 @@ export default function DashboardPage() {
       if (updateError) throw updateError
 
       // Refresh requests
-      await fetchRequestsWithMedia()
+      await refreshRequests()
 
       setIsResponseDialogOpen(false)
       setSelectedRequest(null)
@@ -605,68 +601,92 @@ export default function DashboardPage() {
     }
   }
 
+  const refreshRequests = async () => {
+    if (!user) return
+
+    // Fetch pending requests
+    const { data: pendingData, error: pendingError } = await supabase
+      .from("notice_requests")
+      .select("*")
+      .eq("rep_id", user.id)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+
+    if (!pendingError && pendingData && pendingData.length > 0) {
+      const requestsWithData = await Promise.all(
+        pendingData.map(async (request: SupabaseNoticeRequest) => {
+          const { data: requesterData } = await supabase
+            .from("profiles")
+            .select("display_name, email")
+            .eq("id", request.requester_id)
+            .single()
+          
+          // Fetch media for this request
+          const { data: mediaData } = await supabase
+            .from("notice_request_media")
+            .select("*")
+            .eq("request_id", request.id)
+          
+          return {
+            ...request,
+            requester: {
+              display_name: requesterData?.display_name || null,
+              email: requesterData?.email || ""
+            },
+            media: mediaData || []
+          } as NoticeRequest
+        })
+      )
+      setPendingRequests(requestsWithData)
+    } else {
+      setPendingRequests([])
+    }
+
+    // Fetch processed requests
+    const { data: processedData, error: processedError } = await supabase
+      .from("notice_requests")
+      .select("*")
+      .eq("rep_id", user.id)
+      .in("status", ["approved", "rejected"])
+      .order("responded_at", { ascending: false })
+
+    if (!processedError && processedData && processedData.length > 0) {
+      const requestsWithData = await Promise.all(
+        processedData.map(async (request: SupabaseNoticeRequest) => {
+          const { data: requesterData } = await supabase
+            .from("profiles")
+            .select("display_name, email")
+            .eq("id", request.requester_id)
+            .single()
+          
+          // Fetch media for this request
+          const { data: mediaData } = await supabase
+            .from("notice_request_media")
+            .select("*")
+            .eq("request_id", request.id)
+          
+          return {
+            ...request,
+            requester: {
+              display_name: requesterData?.display_name || null,
+              email: requesterData?.email || ""
+            },
+            media: mediaData || []
+          } as NoticeRequest
+        })
+      )
+      setProcessedRequests(requestsWithData)
+    } else {
+      setProcessedRequests([])
+    }
+  }
+
   const handleDeleteRequest = async (requestId: string) => {
     await supabase.from("notice_request_media").delete().eq("request_id", requestId)
     await supabase.from("notice_requests").delete().eq("id", requestId)
 
     setPendingRequests(pendingRequests.filter((r) => r.id !== requestId))
     setProcessedRequests(processedRequests.filter((r) => r.id !== requestId))
-  }
-
-  const openMediaViewer = (request: NoticeRequest, mediaIndex: number = 0) => {
-    setSelectedMediaRequest(request)
-    setCurrentMediaIndex(mediaIndex)
-    setIsMediaViewerOpen(true)
-  }
-
-  const getMediaIcon = (mediaType: string) => {
-    switch (mediaType) {
-      case "image": return <ImageIcon size={16} />
-      case "video": return <Video size={16} />
-      default: return <File size={16} />
-    }
-  }
-
-  const getMediaBadgeColor = (mediaType: string) => {
-    switch (mediaType) {
-      case "image": return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-      case "video": return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
-      default: return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200"
-    }
-  }
-
-  const getMediaCounts = (request: NoticeRequest | null) => {
-    if (!request || !request.media) return { images: 0, videos: 0, files: 0, total: 0 }
-    
-    const images = request.media.filter(m => m.media_type === "image").length
-    const videos = request.media.filter(m => m.media_type === "video").length
-    const files = request.media.filter(m => m.media_type === "file").length
-    
-    return { images, videos, files, total: images + videos + files }
-  }
-
-  const getVisualMedia = (request: NoticeRequest | null) => {
-    if (!request || !request.media) return []
-    return request.media.filter(m => m.media_type === "image" || m.media_type === "video")
-  }
-
-  const getFiles = (request: NoticeRequest | null) => {
-    if (!request || !request.media) return []
-    return request.media.filter(m => m.media_type === "file")
-  }
-
-  const handleNextMedia = () => {
-    if (!selectedMediaRequest || !selectedMediaRequest.media) return
-    setCurrentMediaIndex((prev) => 
-      prev < getVisualMedia(selectedMediaRequest).length - 1 ? prev + 1 : 0
-    )
-  }
-
-  const handlePrevMedia = () => {
-    if (!selectedMediaRequest || !selectedMediaRequest.media) return
-    setCurrentMediaIndex((prev) => 
-      prev > 0 ? prev - 1 : getVisualMedia(selectedMediaRequest).length - 1
-    )
   }
 
   if (loading) {
@@ -685,7 +705,7 @@ export default function DashboardPage() {
   const defaultTab = searchParams?.get("tab") || "profile"
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-8">
         <Link href="/">
           <Button variant="ghost" size="sm">
@@ -1133,145 +1153,87 @@ export default function DashboardPage() {
                 <CardContent>
                   {pendingRequests.length > 0 ? (
                     <div className="space-y-4">
-                      {pendingRequests.map((request: NoticeRequest) => {
-                        const mediaCounts = getMediaCounts(request)
-                        const visualMedia = getVisualMedia(request)
-                        const files = getFiles(request)
-                        
-                        return (
-                          <div key={request.id} className="border rounded-lg p-4 space-y-3 bg-neutral-50 dark:bg-neutral-900">
-                            <div className="flex flex-col md:flex-row gap-4">
-                              {/* Text Content - Left Side */}
-                              <div className="flex-1">
-                                <div className="flex items-start justify-between mb-3">
-                                  <div className="flex-1">
-                                    <h3 className="font-semibold text-lg mb-1">{request.title}</h3>
-                                    <p className="text-sm text-muted-foreground">
-                                      From: {request.requester.display_name || "Anonymous"} ({request.requester.email || "No email"})
-                                    </p>
-                                  </div>
-                                  <div className="flex items-center gap-2 text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 px-3 py-1 rounded-full text-sm">
-                                    <Clock size={14} />
-                                    <span>Pending</span>
-                                  </div>
-                                </div>
-
-                                <p className="text-sm mb-4">{request.description}</p>
-
-                                {/* Files Section */}
-                                {files.length > 0 && (
-                                  <div className="mb-4">
-                                    <p className="text-sm font-medium mb-2">Attached Files:</p>
-                                    <div className="space-y-2">
-                                      {files.map((file) => (
-                                        <a
-                                          key={file.id}
-                                          href={file.media_url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="flex items-center gap-2 p-2 border rounded text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                                        >
-                                          <File size={12} />
-                                          <span className="truncate flex-1">{file.file_name || file.media_url.split("/").pop() || "Download"}</span>
-                                          {file.is_link && <ExternalLink size={10} className="text-muted-foreground" />}
-                                        </a>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
-                                  <span>Submitted: {new Date(request.created_at).toLocaleString()}</span>
-                                </div>
-
-                                <div className="flex gap-2 pt-4">
-                                  <Button
-                                    size="sm"
-                                    className="bg-green-600 hover:bg-green-700"
-                                    onClick={() => openResponseDialog(request, "accept")}
-                                  >
-                                    <CheckCircle size={16} className="mr-2" />
-                                    Accept
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    onClick={() => openResponseDialog(request, "decline")}
-                                  >
-                                    <XCircle size={16} className="mr-2" />
-                                    Decline
-                                  </Button>
-                                </div>
-                              </div>
-
-                              {/* Media Preview - Right Side */}
-                              {visualMedia.length > 0 && (
-                                <div className="md:w-64 space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-sm font-medium">Media ({visualMedia.length})</p>
-                                    <Badge variant="outline" className="text-xs">
-                                      {mediaCounts.images > 0 && `${mediaCounts.images} image${mediaCounts.images > 1 ? 's' : ''}`}
-                                      {mediaCounts.videos > 0 && `${mediaCounts.images > 0 ? ', ' : ''}${mediaCounts.videos} video${mediaCounts.videos > 1 ? 's' : ''}`}
-                                    </Badge>
-                                  </div>
-                                  
-                                  <div className="grid grid-cols-2 gap-2">
-                                    {visualMedia.slice(0, 4).map((media, index) => (
-                                      <div
-                                        key={media.id}
-                                        className="relative aspect-square rounded-lg overflow-hidden border cursor-pointer group"
-                                        onClick={() => openMediaViewer(request, index)}
-                                      >
-                                        {media.media_type === "image" ? (
-                                          <img
-                                            src={media.media_url}
-                                            alt={`Attachment ${index + 1}`}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                                            onError={(e) => {
-                                              (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' /%3E%3C/svg%3E"
-                                            }}
-                                          />
-                                        ) : (
-                                          <div className="w-full h-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                                            <Video size={24} className="text-neutral-500" />
-                                          </div>
-                                        )}
-                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                                        
-                                        {media.media_type === "video" && (
-                                          <div className="absolute inset-0 flex items-center justify-center">
-                                            <div className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center">
-                                              <Play size={16} className="text-white ml-0.5" />
-                                            </div>
-                                          </div>
-                                        )}
-                                        
-                                        {visualMedia.length > 4 && index === 3 && (
-                                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                                            <span className="text-white text-sm font-medium">+{visualMedia.length - 3}</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                  
-                                  {visualMedia.length > 0 && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="w-full text-xs"
-                                      onClick={() => openMediaViewer(request, 0)}
-                                    >
-                                      <Eye size={12} className="mr-1" />
-                                      View All Media
-                                    </Button>
-                                  )}
-                                </div>
-                              )}
+                      {pendingRequests.map((request: NoticeRequest) => (
+                        <div key={request.id} className="border rounded-lg p-4 space-y-3 bg-neutral-50 dark:bg-neutral-900">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-lg">{request.title}</h3>
+                              <p className="text-sm text-muted-foreground">
+                                From: {request.requester.display_name || "Anonymous"} ({request.requester.email || "No email"})
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 px-3 py-1 rounded-full text-sm">
+                              <Clock size={14} />
+                              <span>Pending</span>
                             </div>
                           </div>
-                        )
-                      })}
+
+                          <p className="text-sm">{request.description}</p>
+
+                          {/* Media Display Section */}
+                          {request.media && request.media.length > 0 && (
+                            <div className="space-y-2 border-t pt-3">
+                              <p className="text-sm font-medium">Attached files ({request.media.length}):</p>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                {request.media.map((media: RequestMedia) => (
+                                  <div key={media.id} className="border rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-800 hover:shadow-md transition-shadow">
+                                    {media.media_type === "image" ? (
+                                      <a href={media.media_url} target="_blank" rel="noopener noreferrer" className="block">
+                                        <img
+                                          src={media.media_url}
+                                          alt="Request attachment"
+                                          className="w-full h-32 object-cover hover:opacity-80 transition-opacity"
+                                        />
+                                      </a>
+                                    ) : media.media_type === "video" ? (
+                                      <video
+                                        src={media.media_url}
+                                        controls
+                                        className="w-full h-32 object-cover"
+                                      />
+                                    ) : (
+                                      <a
+                                        href={media.media_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center justify-center h-32 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+                                      >
+                                        <div className="text-center p-4">
+                                          <Upload size={24} className="mx-auto mb-2 text-muted-foreground" />
+                                          <p className="text-xs text-muted-foreground">View File</p>
+                                        </div>
+                                      </a>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
+                            <span>Submitted: {new Date(request.created_at).toLocaleString()}</span>
+                          </div>
+
+                          <div className="flex gap-2 pt-2">
+                            <Button
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() => openResponseDialog(request, "accept")}
+                            >
+                              <CheckCircle size={16} className="mr-2" />
+                              Accept
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => openResponseDialog(request, "decline")}
+                            >
+                              <XCircle size={16} className="mr-2" />
+                              Decline
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <div className="text-center py-12">
@@ -1292,167 +1254,109 @@ export default function DashboardPage() {
                 <CardContent>
                   {processedRequests.length > 0 ? (
                     <div className="space-y-4">
-                      {processedRequests.map((request: NoticeRequest) => {
-                        const mediaCounts = getMediaCounts(request)
-                        const visualMedia = getVisualMedia(request)
-                        const files = getFiles(request)
-                        
-                        return (
-                          <div key={request.id} className="border rounded-lg p-4 space-y-3 bg-neutral-50 dark:bg-neutral-900">
-                            <div className="flex flex-col md:flex-row gap-4">
-                              {/* Text Content - Left Side */}
-                              <div className="flex-1">
-                                <div className="flex items-start justify-between mb-3">
-                                  <div className="flex-1">
-                                    <h3 className="font-semibold text-lg mb-1">{request.title}</h3>
-                                    <p className="text-sm text-muted-foreground">
-                                      From: {request.requester.display_name || "Anonymous"}
-                                    </p>
-                                  </div>
-                                  {request.status === "approved" ? (
-                                    <div className="flex items-center gap-2 text-green-600 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-full text-sm">
-                                      <CheckCircle size={14} />
-                                      <span>Approved</span>
-                                    </div>
-                                  ) : (
-                                    <div className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-full text-sm">
-                                      <XCircle size={14} />
-                                      <span>Rejected</span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <p className="text-sm text-muted-foreground line-clamp-3 mb-4">{request.description}</p>
-
-                                {/* Files Section */}
-                                {files.length > 0 && (
-                                  <div className="mb-4">
-                                    <p className="text-sm font-medium mb-2">Attached Files:</p>
-                                    <div className="space-y-2">
-                                      {files.map((file) => (
-                                        <a
-                                          key={file.id}
-                                          href={file.media_url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="flex items-center gap-2 p-2 border rounded text-xs hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                                        >
-                                          <File size={12} />
-                                          <span className="truncate flex-1">{file.file_name || file.media_url.split("/").pop() || "Download"}</span>
-                                          {file.is_link && <ExternalLink size={10} className="text-muted-foreground" />}
-                                        </a>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {request.response_message && (
-                                  <div className={`p-3 rounded border text-sm mb-4 ${
-                                    request.status === "approved"
-                                      ? "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800"
-                                      : "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800"
-                                  }`}>
-                                    <p className="font-medium mb-1">Your response:</p>
-                                    <p className="text-sm">{request.response_message}</p>
-                                  </div>
-                                )}
-
-                                <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
-                                  <span>Responded: {request.responded_at ? new Date(request.responded_at).toLocaleString() : "N/A"}</span>
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
-                                        <Trash2 size={14} className="mr-1" />
-                                        Delete
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogTitle>Delete Request</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Are you sure you want to delete this request? This action cannot be undone.
-                                      </AlertDialogDescription>
-                                      <div className="flex gap-2 justify-end">
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction
-                                          onClick={() => handleDeleteRequest(request.id)}
-                                          className="bg-red-600 hover:bg-red-700"
-                                        >
-                                          Delete
-                                        </AlertDialogAction>
-                                      </div>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                </div>
-                              </div>
-
-                              {/* Media Preview - Right Side */}
-                              {visualMedia.length > 0 && (
-                                <div className="md:w-64 space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-sm font-medium">Media ({visualMedia.length})</p>
-                                    <Badge variant="outline" className="text-xs">
-                                      {mediaCounts.images > 0 && `${mediaCounts.images} image${mediaCounts.images > 1 ? 's' : ''}`}
-                                      {mediaCounts.videos > 0 && `${mediaCounts.images > 0 ? ', ' : ''}${mediaCounts.videos} video${mediaCounts.videos > 1 ? 's' : ''}`}
-                                    </Badge>
-                                  </div>
-                                  
-                                  <div className="grid grid-cols-2 gap-2">
-                                    {visualMedia.slice(0, 4).map((media, index) => (
-                                      <div
-                                        key={media.id}
-                                        className="relative aspect-square rounded-lg overflow-hidden border cursor-pointer group"
-                                        onClick={() => openMediaViewer(request, index)}
-                                      >
-                                        {media.media_type === "image" ? (
-                                          <img
-                                            src={media.media_url}
-                                            alt={`Attachment ${index + 1}`}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                                            onError={(e) => {
-                                              (e.target as HTMLImageElement).src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' /%3E%3C/svg%3E"
-                                            }}
-                                          />
-                                        ) : (
-                                          <div className="w-full h-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                                            <Video size={24} className="text-neutral-500" />
-                                          </div>
-                                        )}
-                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                                        
-                                        {media.media_type === "video" && (
-                                          <div className="absolute inset-0 flex items-center justify-center">
-                                            <div className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center">
-                                              <Play size={16} className="text-white ml-0.5" />
-                                            </div>
-                                          </div>
-                                        )}
-                                        
-                                        {visualMedia.length > 4 && index === 3 && (
-                                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                                            <span className="text-white text-sm font-medium">+{visualMedia.length - 3}</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                  
-                                  {visualMedia.length > 0 && (
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="w-full text-xs"
-                                      onClick={() => openMediaViewer(request, 0)}
-                                    >
-                                      <Eye size={12} className="mr-1" />
-                                      View Media
-                                    </Button>
-                                  )}
-                                </div>
-                              )}
+                      {processedRequests.map((request: NoticeRequest) => (
+                        <div key={request.id} className="border rounded-lg p-4 space-y-3 bg-neutral-50 dark:bg-neutral-900">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-lg">{request.title}</h3>
+                              <p className="text-sm text-muted-foreground">
+                                From: {request.requester.display_name || "Anonymous"}
+                              </p>
                             </div>
+                            {request.status === "approved" ? (
+                              <div className="flex items-center gap-2 text-green-600 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-full text-sm">
+                                <CheckCircle size={14} />
+                                <span>Approved</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-full text-sm">
+                                <XCircle size={14} />
+                                <span>Rejected</span>
+                              </div>
+                            )}
                           </div>
-                        )
-                      })}
+
+                          <p className="text-sm text-muted-foreground line-clamp-2">{request.description}</p>
+
+                          {/* Media Display Section for Processed Requests */}
+                          {request.media && request.media.length > 0 && (
+                            <div className="space-y-2 border-t pt-3">
+                              <p className="text-sm font-medium">Attached files ({request.media.length}):</p>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                {request.media.map((media: RequestMedia) => (
+                                  <div key={media.id} className="border rounded-lg overflow-hidden bg-neutral-100 dark:bg-neutral-800 hover:shadow-md transition-shadow">
+                                    {media.media_type === "image" ? (
+                                      <a href={media.media_url} target="_blank" rel="noopener noreferrer" className="block">
+                                        <img
+                                          src={media.media_url}
+                                          alt="Request attachment"
+                                          className="w-full h-32 object-cover hover:opacity-80 transition-opacity"
+                                        />
+                                      </a>
+                                    ) : media.media_type === "video" ? (
+                                      <video
+                                        src={media.media_url}
+                                        controls
+                                        className="w-full h-32 object-cover"
+                                      />
+                                    ) : (
+                                      <a
+                                        href={media.media_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center justify-center h-32 hover:bg-neutral-200 dark:hover:bg-neutral-700 transition-colors"
+                                      >
+                                        <div className="text-center p-4">
+                                          <Upload size={24} className="mx-auto mb-2 text-muted-foreground" />
+                                          <p className="text-xs text-muted-foreground">View File</p>
+                                        </div>
+                                      </a>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {request.response_message && (
+                            <div className={`p-3 rounded border text-sm ${
+                              request.status === "approved"
+                                ? "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800"
+                                : "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800"
+                            }`}>
+                              <p className="font-medium mb-1">Your response:</p>
+                              <p className="text-sm">{request.response_message}</p>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t">
+                            <span>Responded: {request.responded_at ? new Date(request.responded_at).toLocaleString() : "N/A"}</span>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
+                                  <Trash2 size={14} className="mr-1" />
+                                  Delete
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogTitle>Delete Request</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete this request? This action cannot be undone.
+                                </AlertDialogDescription>
+                                <div className="flex gap-2 justify-end">
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDeleteRequest(request.id)}
+                                    className="bg-red-600 hover:bg-red-700"
+                                  >
+                                    Delete
+                                  </AlertDialogAction>
+                                </div>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <div className="text-center py-12">
@@ -1520,145 +1424,6 @@ export default function DashboardPage() {
           </TabsContent>
         )}
       </Tabs>
-
-      {/* Media Slideshow Modal */}
-      <Dialog open={isMediaViewerOpen} onOpenChange={setIsMediaViewerOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden">
-          {selectedMediaRequest && selectedMediaRequest.media && (
-            <div className="flex flex-col h-full">
-              {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b">
-                <div>
-                  <DialogTitle className="text-lg">Media Viewer</DialogTitle>
-                  <DialogDescription className="text-sm">
-                    {selectedMediaRequest.title}
-                  </DialogDescription>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsMediaViewerOpen(false)}
-                  className="h-8 w-8 p-0"
-                >
-                  <X size={18} />
-                </Button>
-              </div>
-
-              {/* Main Media Display */}
-              <div className="flex-1 flex flex-col items-center justify-center p-4 bg-neutral-50 dark:bg-neutral-900 relative">
-                {getVisualMedia(selectedMediaRequest).length > 0 ? (
-                  <>
-                    {/* Current Media */}
-                    <div className="relative w-full max-h-[60vh] flex items-center justify-center">
-                      {getVisualMedia(selectedMediaRequest)[currentMediaIndex].media_type === "image" ? (
-                        <img
-                          src={getVisualMedia(selectedMediaRequest)[currentMediaIndex].media_url}
-                          alt={`Media ${currentMediaIndex + 1}`}
-                          className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-lg"
-                        />
-                      ) : (
-                        <video
-                          src={getVisualMedia(selectedMediaRequest)[currentMediaIndex].media_url}
-                          controls
-                          className="max-w-full max-h-[60vh] rounded-lg shadow-lg"
-                          autoPlay
-                        />
-                      )}
-
-                      {/* Navigation Buttons */}
-                      {getVisualMedia(selectedMediaRequest).length > 1 && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white border-none"
-                            onClick={handlePrevMedia}
-                          >
-                            <ChevronLeft size={20} />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white border-none"
-                            onClick={handleNextMedia}
-                          >
-                            <ChevronRight size={20} />
-                          </Button>
-                        </>
-                      )}
-
-                      {/* Media Info Badge */}
-                      <div className="absolute top-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
-                        {getVisualMedia(selectedMediaRequest)[currentMediaIndex].media_type === "image" ? "Image" : "Video"} 
-                        <span className="ml-2">
-                          {currentMediaIndex + 1} / {getVisualMedia(selectedMediaRequest).length}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Thumbnail Strip */}
-                    {getVisualMedia(selectedMediaRequest).length > 1 && (
-                      <div className="mt-4 flex gap-2 overflow-x-auto pb-2 px-4">
-                        {getVisualMedia(selectedMediaRequest).map((media, index) => (
-                          <button
-                            key={media.id}
-                            onClick={() => setCurrentMediaIndex(index)}
-                            className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
-                              index === currentMediaIndex 
-                                ? "border-blue-500 ring-2 ring-blue-200" 
-                                : "border-transparent hover:border-neutral-300"
-                            }`}
-                          >
-                            {media.media_type === "image" ? (
-                              <img
-                                src={media.media_url}
-                                alt={`Thumbnail ${index + 1}`}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-neutral-200 dark:bg-neutral-700 flex items-center justify-center">
-                                <Video size={16} className="text-neutral-500" />
-                              </div>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Files Section */}
-                    {getFiles(selectedMediaRequest).length > 0 && (
-                      <div className="w-full mt-4 px-4">
-                        <p className="text-sm font-medium mb-2">Files:</p>
-                        <div className="space-y-2 max-h-40 overflow-y-auto">
-                          {getFiles(selectedMediaRequest).map((file) => (
-                            <a
-                              key={file.id}
-                              href={file.media_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-3 p-2 border rounded text-sm hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-                            >
-                              <File size={14} />
-                              <span className="truncate flex-1">{file.file_name || file.media_url.split("/").pop() || "Download File"}</span>
-                              {file.is_link && <ExternalLink size={12} className="text-muted-foreground" />}
-                            </a>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="text-center py-12">
-                    <File size={48} className="mx-auto text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">No visual media found</p>
-                    <p className="text-sm text-muted-foreground mt-1">Check the files section below for attachments</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Response Dialog */}
       <Dialog open={isResponseDialogOpen} onOpenChange={setIsResponseDialogOpen}>
