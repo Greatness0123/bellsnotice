@@ -10,20 +10,18 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 type Notice = {
   id: string
   title: string
-  description: string  // Changed from content to description
+  description: string
   author_id: string
   is_important?: boolean
   is_featured?: boolean
   created_at: string
   view_count: number
-  // Add other fields from your database as optional
-  content?: string  // Keep content as optional if it exists in DB
 }
 
 type Profile = {
   id: string
   display_name: string
-  profile_image_url: string | null  // Changed to match NoticeCard expectation
+  profile_image_url: string | null
 }
 
 type HomePageProps = {
@@ -42,80 +40,142 @@ export default function HomePage({ user }: HomePageProps) {
 
   useEffect(() => {
     const fetchNotices = async () => {
-      // Fetch important notices - need to select all fields that NoticeCard expects
-      const { data: importantData } = await supabase
-        .from("notices")
-        .select("id, title, description, author_id, created_at, view_count, is_important, is_featured, content")
-        .eq("is_important", true)
-        .order("created_at", { ascending: false })
-        .limit(20)
+      try {
+        console.log("Fetching notices...")
+        
+        // Try selecting all columns first to see what's available
+        const { data: allColumns, error: allColumnsError } = await supabase
+          .from("notices")
+          .select("*")
+          .limit(1)
+          
+        if (allColumnsError) {
+          console.error("Error checking columns:", allColumnsError)
+        }
+        
+        if (allColumns && allColumns.length > 0) {
+          console.log("Available columns in notices table:", Object.keys(allColumns[0]))
+        }
 
-      // Fetch featured notices
-      const { data: featuredData } = await supabase
-        .from("notices")
-        .select("id, title, description, author_id, created_at, view_count, is_important, is_featured, content")
-        .eq("is_featured", true)
-        .order("created_at", { ascending: false })
-        .limit(20)
+        // Fetch important notices - use content field as description
+        const { data: importantData, error: importantError } = await supabase
+          .from("notices")
+          .select("*")  // Use * to get all columns, then we'll map them
+          .eq("is_important", true)
+          .order("created_at", { ascending: false })
+          .limit(20)
 
-      // Fetch all notices for random selection
-      const { data: allData } = await supabase
-        .from("notices")
-        .select("id, title, description, author_id, created_at, view_count, is_important, is_featured, content")
-        .order("created_at", { ascending: false })
-        .limit(50)
+        if (importantError) {
+          console.error("Error fetching important notices:", importantError)
+        } else {
+          console.log("Important notices fetched:", importantData?.length)
+        }
 
-      // Transform data to match Notice type
-      const transformNotice = (notice: any): Notice => ({
-        id: notice.id,
-        title: notice.title,
-        description: notice.description || notice.content || "", // Map content to description if needed
-        author_id: notice.author_id,
-        created_at: notice.created_at,
-        view_count: notice.view_count || 0,
-        is_important: notice.is_important,
-        is_featured: notice.is_featured,
-        content: notice.content
-      })
+        // Fetch featured notices
+        const { data: featuredData, error: featuredError } = await supabase
+          .from("notices")
+          .select("*")
+          .eq("is_featured", true)
+          .order("created_at", { ascending: false })
+          .limit(20)
 
-      const importantTransformed = (importantData || []).map(transformNotice)
-      const featuredTransformed = (featuredData || []).map(transformNotice)
-      const allTransformed = (allData || []).map(transformNotice)
+        if (featuredError) {
+          console.error("Error fetching featured notices:", featuredError)
+        } else {
+          console.log("Featured notices fetched:", featuredData?.length)
+        }
 
-      // Shuffle and get 12 random notices
-      const randomSelected = [...allTransformed]
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 12)
+        // Fetch all notices for random selection
+        const { data: allData, error: allError } = await supabase
+          .from("notices")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(50)
 
-      // Get unique author IDs
-      const authorIds = [
-        ...importantTransformed.map((n: Notice) => n.author_id),
-        ...featuredTransformed.map((n: Notice) => n.author_id),
-        ...randomSelected.map((n: Notice) => n.author_id),
-      ]
-      const uniqueAuthorIds = [...new Set(authorIds)]
+        if (allError) {
+          console.error("Error fetching all notices:", allError)
+        } else {
+          console.log("All notices fetched:", allData?.length)
+        }
 
-      const { data: profilesData } = await supabase
-        .from("profiles")
-        .select("id, display_name, profile_image_url")
-        .in("id", uniqueAuthorIds)
-
-      if (profilesData) {
-        const profileMap = profilesData.reduce((acc: Record<string, Profile>, p: any) => {
-          acc[p.id] = {
-            id: p.id,
-            display_name: p.display_name,
-            profile_image_url: p.profile_image_url  // This will be string | null from DB
+        // Transform data to match Notice type
+        // If your database has "content" field, use it as "description"
+        const transformNotice = (notice: any): Notice => {
+          console.log("Transforming notice:", notice.id, "Content field exists:", "content" in notice)
+          
+          return {
+            id: notice.id,
+            title: notice.title || "",
+            // Use content field if description doesn't exist
+            description: notice.description || notice.content || "",
+            author_id: notice.author_id || "",
+            created_at: notice.created_at || new Date().toISOString(),
+            view_count: notice.view_count || 0,
+            is_important: notice.is_important || false,
+            is_featured: notice.is_featured || false,
           }
-          return acc
-        }, {})
-        setProfiles(profileMap)
-      }
+        }
 
-      setImportantNotices(importantTransformed)
-      setFeaturedNotices(featuredTransformed)
-      setRandomNotices(randomSelected)
-      setLoading(false)
+        const importantTransformed = (importantData || []).map(transformNotice)
+        const featuredTransformed = (featuredData || []).map(transformNotice)
+        const allTransformed = (allData || []).map(transformNotice)
+
+        console.log("Important transformed:", importantTransformed.length)
+        console.log("Featured transformed:", featuredTransformed.length)
+        console.log("All transformed:", allTransformed.length)
+
+        // Shuffle and get 12 random notices
+        const randomSelected = [...allTransformed]
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 12)
+
+        console.log("Random selected:", randomSelected.length)
+
+        // Get unique author IDs
+        const authorIds = [
+          ...importantTransformed.map((n: Notice) => n.author_id),
+          ...featuredTransformed.map((n: Notice) => n.author_id),
+          ...randomSelected.map((n: Notice) => n.author_id),
+        ]
+        const uniqueAuthorIds = [...new Set(authorIds)]
+
+        console.log("Unique author IDs:", uniqueAuthorIds)
+
+        if (uniqueAuthorIds.length > 0) {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from("profiles")
+            .select("id, display_name, profile_image_url")
+            .in("id", uniqueAuthorIds)
+
+          if (profilesError) {
+            console.error("Error fetching profiles:", profilesError)
+          } else {
+            console.log("Profiles fetched:", profilesData?.length)
+            
+            if (profilesData) {
+              const profileMap = profilesData.reduce((acc: Record<string, Profile>, p: any) => {
+                acc[p.id] = {
+                  id: p.id,
+                  display_name: p.display_name || "Unknown",
+                  profile_image_url: p.profile_image_url
+                }
+                return acc
+              }, {})
+              setProfiles(profileMap)
+            }
+          }
+        }
+
+        setImportantNotices(importantTransformed)
+        setFeaturedNotices(featuredTransformed)
+        setRandomNotices(randomSelected)
+        console.log("State updated successfully")
+        
+      } catch (error) {
+        console.error("Error in fetchNotices:", error)
+      } finally {
+        setLoading(false)
+      }
     }
 
     fetchNotices()
@@ -164,6 +224,11 @@ export default function HomePage({ user }: HomePageProps) {
       </div>
     )
   }
+
+  // Debug output
+  console.log("Render - Important notices:", importantNotices.length)
+  console.log("Render - Featured notices:", featuredNotices.length)
+  console.log("Render - Random notices:", randomNotices.length)
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -244,6 +309,9 @@ export default function HomePage({ user }: HomePageProps) {
         ) : (
           <div className="text-center py-12 bg-neutral-50 dark:bg-neutral-900 rounded-lg">
             <p className="text-muted-foreground">No notices available yet</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Important: {importantNotices.length}, Featured: {featuredNotices.length}, Random: {randomNotices.length}
+            </p>
           </div>
         )}
       </section>
