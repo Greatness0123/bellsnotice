@@ -355,7 +355,7 @@ export default function HomePage({ user }: HomePageProps) {
           
           <div className="relative">
             {/* Mobile navigation buttons - show on small screens when dots are shown */}
-            {showDots && isMobile && (
+            {/* {showDots && isMobile && (
               <div className="flex justify-between items-center mb-4">
                 <Button size="icon" variant="outline" onClick={handleImportantPrev} className="z-10">
                   <ChevronLeft size={20} />
@@ -367,7 +367,7 @@ export default function HomePage({ user }: HomePageProps) {
                   <ChevronRight size={20} />
                 </Button>
               </div>
-            )}
+            )} */}
             
             {/* Horizontal Scroll Container */}
             <div 
