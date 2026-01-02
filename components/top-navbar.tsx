@@ -53,7 +53,7 @@ export function TopNavbar({ user }: TopNavbarProps) {
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           {/* Left - Logo or Title */}
           <div className="flex-1">
-            <Link href="/" className="text-lg font-bold text-red-600">
+            <Link href="/" className="text-lg font-bold text-black-600">
               Bells Notice
             </Link>
           </div>
