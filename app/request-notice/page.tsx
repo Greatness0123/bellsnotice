@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { ArrowLeft, Upload, CheckCircle, XCircle, Clock, Link as LinkIcon } from "lucide-react"
+import { ArrowLeft, Upload, CheckCircle, XCircle, Clock, Link as LinkIcon, Plus, X } from "lucide-react"
 import Link from "next/link"
 
 interface RequestFormState {
@@ -58,6 +58,13 @@ interface User {
   email?: string
 }
 
+interface MediaItem {
+  type: "image" | "video" | "file"
+  url: string
+  isLink: boolean
+  name?: string
+}
+
 export default function RequestNoticePage() {
   const [user, setUser] = useState<User | null>(null)
   const [reps, setReps] = useState<Profile[]>([])
@@ -65,7 +72,6 @@ export default function RequestNoticePage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
@@ -75,6 +81,17 @@ export default function RequestNoticePage() {
     description: "",
     selectedRepId: "",
   })
+
+  // Media state for uploads and links
+  const [images, setImages] = useState<File[]>([])
+  const [videos, setVideos] = useState<File[]>([])
+  const [files, setFiles] = useState<File[]>([])
+  const [imageUrls, setImageUrls] = useState<string[]>([])
+  const [videoUrls, setVideoUrls] = useState<string[]>([])
+  const [fileUrls, setFileUrls] = useState<string[]>([])
+  const [imageUrlInput, setImageUrlInput] = useState("")
+  const [videoUrlInput, setVideoUrlInput] = useState("")
+  const [fileUrlInput, setFileUrlInput] = useState("")
 
   // Initial load - check user and fetch reps
   useEffect(() => {
@@ -180,11 +197,74 @@ export default function RequestNoticePage() {
     fetchUserRequests()
   }, [user, supabase])
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files)
-      setUploadedFiles(files)
-      setError(null)
+  // File upload handlers
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: "images" | "videos" | "files") => {
+    const selectedFiles = Array.from(e.target.files || [])
+    if (type === "images") setImages([...images, ...selectedFiles])
+    if (type === "videos") setVideos([...videos, ...selectedFiles])
+    if (type === "files") setFiles([...files, ...selectedFiles])
+  }
+
+  // URL handlers
+  const handleAddImageUrl = () => {
+    if (imageUrlInput.trim() && isValidUrl(imageUrlInput.trim())) {
+      setImageUrls([...imageUrls, imageUrlInput.trim()])
+      setImageUrlInput("")
+    } else {
+      setError("Please enter a valid URL for the image")
+    }
+  }
+
+  const handleAddVideoUrl = () => {
+    if (videoUrlInput.trim() && isValidUrl(videoUrlInput.trim())) {
+      setVideoUrls([...videoUrls, videoUrlInput.trim()])
+      setVideoUrlInput("")
+    } else {
+      setError("Please enter a valid URL for the video")
+    }
+  }
+
+  const handleAddFileUrl = () => {
+    if (fileUrlInput.trim() && isValidUrl(fileUrlInput.trim())) {
+      setFileUrls([...fileUrls, fileUrlInput.trim()])
+      setFileUrlInput("")
+    } else {
+      setError("Please enter a valid URL for the file")
+    }
+  }
+
+  // Remove handlers
+  const handleRemoveImage = (index: number) => {
+    setImages(images.filter((_, i) => i !== index))
+  }
+
+  const handleRemoveVideo = (index: number) => {
+    setVideos(videos.filter((_, i) => i !== index))
+  }
+
+  const handleRemoveFile = (index: number) => {
+    setFiles(files.filter((_, i) => i !== index))
+  }
+
+  const handleRemoveImageUrl = (index: number) => {
+    setImageUrls(imageUrls.filter((_, i) => i !== index))
+  }
+
+  const handleRemoveVideoUrl = (index: number) => {
+    setVideoUrls(videoUrls.filter((_, i) => i !== index))
+  }
+
+  const handleRemoveFileUrl = (index: number) => {
+    setFileUrls(fileUrls.filter((_, i) => i !== index))
+  }
+
+  // Helper function to validate URLs
+  const isValidUrl = (url: string) => {
+    try {
+      new URL(url)
+      return true
+    } catch {
+      return false
     }
   }
 
@@ -197,6 +277,25 @@ export default function RequestNoticePage() {
       [name]: value,
     }))
     setError(null)
+  }
+
+  // Upload file to storage
+  const uploadFile = async (file: File, bucket: string, path: string): Promise<string> => {
+    const timestamp = Date.now()
+    const randomId = Math.random().toString(36).substring(7)
+    const fileName = `${path}/${user?.id}/${timestamp}-${randomId}-${file.name}`
+    
+    const { data, error: uploadError } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, file)
+
+    if (uploadError) throw uploadError
+
+    const { data: urlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(fileName)
+
+    return urlData.publicUrl
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -248,53 +347,98 @@ export default function RequestNoticePage() {
         throw new Error("Failed to create request. Please try again.")
       }
 
-      // Upload files if any
-      if (uploadedFiles.length > 0) {
-        for (const file of uploadedFiles) {
-          try {
-            const timestamp = Date.now()
-            const randomId = Math.random().toString(36).substring(7)
-            const fileName = `requests/${user.id}/${timestamp}-${randomId}-${file.name}`
-            const fileExt = file.name.split(".").pop()?.toLowerCase() || ""
+      // Prepare all media items (both uploaded files and links)
+      const mediaItems: MediaItem[] = []
 
-            // Determine media type
-            let mediaType: "image" | "video" | "file" = "file"
-            if (["jpg", "jpeg", "png", "gif", "webp"].includes(fileExt)) {
-              mediaType = "image"
-            } else if (["mp4", "webm", "mov", "avi"].includes(fileExt)) {
-              mediaType = "video"
-            }
+      // Upload and add uploaded images
+      for (const image of images) {
+        try {
+          const url = await uploadFile(image, "bellsnotice", "requests/images")
+          mediaItems.push({
+            type: "image",
+            url,
+            isLink: false,
+            name: image.name
+          })
+        } catch (err) {
+          console.error("Error uploading image:", image.name, err)
+        }
+      }
 
-            // Upload to storage
-            const { error: uploadError } = await supabase.storage
-              .from("bellsnotice")
-              .upload(fileName, file)
+      // Upload and add uploaded videos
+      for (const video of videos) {
+        try {
+          const url = await uploadFile(video, "bellsnotice", "requests/videos")
+          mediaItems.push({
+            type: "video",
+            url,
+            isLink: false,
+            name: video.name
+          })
+        } catch (err) {
+          console.error("Error uploading video:", video.name, err)
+        }
+      }
 
-            if (uploadError) {
-              console.error("Upload error for file:", file.name, uploadError)
-              continue
-            }
+      // Upload and add uploaded files
+      for (const file of files) {
+        try {
+          const url = await uploadFile(file, "bellsnotice", "requests/files")
+          mediaItems.push({
+            type: "file",
+            url,
+            isLink: false,
+            name: file.name
+          })
+        } catch (err) {
+          console.error("Error uploading file:", file.name, err)
+        }
+      }
 
-            // Get public URL
-            const { data: urlData } = supabase.storage
-              .from("bellsnotice")
-              .getPublicUrl(fileName)
+      // Add image URLs
+      for (const imageUrl of imageUrls) {
+        mediaItems.push({
+          type: "image",
+          url: imageUrl,
+          isLink: true
+        })
+      }
 
-            // Save media reference to notice_request_media table
-            const { error: mediaError } = await supabase
-              .from("notice_request_media")
-              .insert({
-                request_id: newRequest.id,
-                media_type: mediaType,
-                media_url: urlData.publicUrl,
-              })
+      // Add video URLs
+      for (const videoUrl of videoUrls) {
+        mediaItems.push({
+          type: "video",
+          url: videoUrl,
+          isLink: true
+        })
+      }
 
-            if (mediaError) {
-              console.error("Media insert error:", mediaError)
-            }
-          } catch (fileErr) {
-            console.error("Error processing file:", file.name, fileErr)
-          }
+      // Add file URLs
+      for (const fileUrl of fileUrls) {
+        mediaItems.push({
+          type: "file",
+          url: fileUrl,
+          isLink: true
+        })
+      }
+
+      // Insert media records if we have any
+      if (mediaItems.length > 0) {
+        const mediaRecords = mediaItems.map((item) => ({
+          request_id: newRequest.id,
+          media_type: item.type,
+          media_url: item.url,
+          is_link: item.isLink,
+          file_name: item.name || null
+        }))
+
+        const { error: mediaError } = await supabase
+          .from("notice_request_media")
+          .insert(mediaRecords)
+
+        if (mediaError) {
+          console.error("Media insert error:", mediaError)
+          // Don't throw, just log the error
         }
       }
 
@@ -304,7 +448,17 @@ export default function RequestNoticePage() {
         description: "",
         selectedRepId: "",
       })
-      setUploadedFiles([])
+      // Reset all media states
+      setImages([])
+      setVideos([])
+      setFiles([])
+      setImageUrls([])
+      setVideoUrls([])
+      setFileUrls([])
+      setImageUrlInput("")
+      setVideoUrlInput("")
+      setFileUrlInput("")
+      
       setSuccessMessage("Request submitted successfully! The rep will review it shortly.")
 
       // Refresh requests list
@@ -369,6 +523,10 @@ export default function RequestNoticePage() {
         return null
     }
   }
+
+  // Calculate total files count for display
+  const totalUploadedFiles = images.length + videos.length + files.length
+  const totalUrls = imageUrls.length + videoUrls.length + fileUrls.length
 
   if (loading) {
     return (
@@ -477,54 +635,207 @@ export default function RequestNoticePage() {
                 </p>
               </div>
 
-              {/* File Upload */}
-              <div className="grid gap-2">
-                <Label htmlFor="files" className="text-base font-semibold">
-                  Attach Files <span className="text-muted-foreground">(Optional)</span>
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  You can upload images, videos, or documents to support your notice
-                </p>
-                <div className="border-2 border-dashed border-neutral-300 dark:border-neutral-600 rounded-lg p-8 text-center cursor-pointer hover:border-neutral-400 dark:hover:border-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-900/30 transition-colors">
-                  <input
-                    id="files"
-                    type="file"
-                    multiple
-                    onChange={handleFileChange}
-                    className="hidden"
-                    accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-                  />
-                  <label htmlFor="files" className="cursor-pointer block">
-                    <Upload size={32} className="mx-auto mb-3 text-muted-foreground" />
-                    <p className="text-sm font-medium text-foreground">
-                      {uploadedFiles.length > 0
-                        ? `${uploadedFiles.length} file(s) selected`
-                        : "Click to upload or drag and drop"}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      PNG, JPG, MP4, PDF or DOC (max 50MB each)
-                    </p>
-                  </label>
-                </div>
+              {/* Media Upload Section */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Media Attachments</CardTitle>
+                  <CardDescription>
+                    Upload files or add web links to support your notice (Optional)
+                  </CardDescription>
+                  {(totalUploadedFiles > 0 || totalUrls > 0) && (
+                    <div className="text-sm text-muted-foreground mt-1">
+                      {totalUploadedFiles} file(s) uploaded • {totalUrls} link(s) added
+                    </div>
+                  )}
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Images */}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="images">Images (Upload)</Label>
+                      <Input
+                        id="images"
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, "images")}
+                      />
+                      {images.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {images.map((image, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-neutral-50 dark:bg-neutral-900 rounded">
+                              <span className="text-sm truncate">{image.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveImage(index)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-                {/* Show selected files */}
-                {uploadedFiles.length > 0 && (
-                  <div className="mt-4 p-4 bg-neutral-50 dark:bg-neutral-900 rounded-lg">
-                    <p className="text-sm font-semibold mb-3">Selected files ({uploadedFiles.length}):</p>
-                    <ul className="space-y-2">
-                      {uploadedFiles.map((file, idx) => (
-                        <li key={idx} className="text-sm text-muted-foreground flex items-center gap-2">
-                          <span className="inline-block w-2 h-2 bg-primary rounded-full"></span>
-                          {file.name}
-                          <span className="text-xs">
-                            ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="space-y-2">
+                      <Label htmlFor="imageUrl">Images (Web Link)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="imageUrl"
+                          placeholder="Paste image URL (e.g., https://example.com/image.jpg)"
+                          value={imageUrlInput}
+                          onChange={(e) => setImageUrlInput(e.target.value)}
+                          onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddImageUrl())}
+                        />
+                        <Button type="button" onClick={handleAddImageUrl} variant="outline">
+                          <Plus size={16} />
+                        </Button>
+                      </div>
+                      {imageUrls.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {imageUrls.map((url, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-900/30 rounded">
+                              <span className="text-sm truncate">{url}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveImageUrl(index)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  {/* Videos */}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="videos">Videos (Upload)</Label>
+                      <Input
+                        id="videos"
+                        type="file"
+                        multiple
+                        accept="video/*"
+                        onChange={(e) => handleFileChange(e, "videos")}
+                      />
+                      {videos.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {videos.map((video, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-neutral-50 dark:bg-neutral-900 rounded">
+                              <span className="text-sm truncate">{video.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveVideo(index)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="videoUrl">Videos (Web Link)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="videoUrl"
+                          placeholder="Paste video URL (e.g., https://example.com/video.mp4)"
+                          value={videoUrlInput}
+                          onChange={(e) => setVideoUrlInput(e.target.value)}
+                          onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddVideoUrl())}
+                        />
+                        <Button type="button" onClick={handleAddVideoUrl} variant="outline">
+                          <Plus size={16} />
+                        </Button>
+                      </div>
+                      {videoUrls.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {videoUrls.map((url, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-900/30 rounded">
+                              <span className="text-sm truncate">{url}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveVideoUrl(index)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Files */}
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="files">Documents (Upload)</Label>
+                      <Input
+                        id="files"
+                        type="file"
+                        multiple
+                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+                        onChange={(e) => handleFileChange(e, "files")}
+                      />
+                      {files.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {files.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-neutral-50 dark:bg-neutral-900 rounded">
+                              <span className="text-sm truncate">{file.name}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveFile(index)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="fileUrl">Documents (Web Link)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="fileUrl"
+                          placeholder="Paste file URL (e.g., https://example.com/document.pdf)"
+                          value={fileUrlInput}
+                          onChange={(e) => setFileUrlInput(e.target.value)}
+                          onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), handleAddFileUrl())}
+                        />
+                        <Button type="button" onClick={handleAddFileUrl} variant="outline">
+                          <Plus size={16} />
+                        </Button>
+                      </div>
+                      {fileUrls.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {fileUrls.map((url, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-900/30 rounded">
+                              <span className="text-sm truncate">{url}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveFileUrl(index)}
+                                className="text-red-500 hover:text-red-700"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Error Message */}
               {error && (
@@ -563,13 +874,23 @@ export default function RequestNoticePage() {
                       description: "",
                       selectedRepId: "",
                     })
-                    setUploadedFiles([])
+                    // Clear all media
+                    setImages([])
+                    setVideos([])
+                    setFiles([])
+                    setImageUrls([])
+                    setVideoUrls([])
+                    setFileUrls([])
+                    setImageUrlInput("")
+                    setVideoUrlInput("")
+                    setFileUrlInput("")
                     setError(null)
+                    setSuccessMessage(null)
                   }}
                   disabled={submitting}
                   size="lg"
                 >
-                  Clear
+                  Clear All
                 </Button>
               </div>
             </form>

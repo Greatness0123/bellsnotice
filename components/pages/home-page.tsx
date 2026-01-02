@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { NoticeCard } from "@/components/notice-card"
 import { Button } from "@/components/ui/button"
@@ -36,7 +36,64 @@ export default function HomePage({ user }: HomePageProps) {
   const [loading, setLoading] = useState(true)
   const [importantCarouselIndex, setImportantCarouselIndex] = useState(0)
   const [featuredCarouselIndex, setFeaturedCarouselIndex] = useState(0)
+  
+  // For touch/swipe functionality and scroll detection
+  const [touchStart, setTouchStart] = useState<number | null>(null)
+  const [touchEnd, setTouchEnd] = useState<number | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  const carouselContainerRef = useRef<HTMLDivElement>(null)
+  const carouselContentRef = useRef<HTMLDivElement>(null)
+  
   const supabase = createClient()
+
+  // Check if mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768) // md breakpoint
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // Minimum swipe distance (in pixels)
+  const minSwipeDistance = 50
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null)
+    setTouchStart(e.targetTouches[0].clientX)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX)
+  }
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return
+    
+    const distance = touchStart - touchEnd
+    const isLeftSwipe = distance > minSwipeDistance
+    const isRightSwipe = distance < -minSwipeDistance
+    
+    if (isLeftSwipe) {
+      handleImportantNext()
+    }
+    if (isRightSwipe) {
+      handleImportantPrev()
+    }
+  }
+
+  // Calculate how many items can fit based on screen width
+  const getItemsPerView = () => {
+    if (typeof window === 'undefined') return 1
+    
+    const screenWidth = window.innerWidth
+    if (screenWidth >= 1024) return 3 // lg: 3 per row
+    if (screenWidth >= 768) return 2  // md: 2 per row
+    return 1                         // mobile: 1 per row
+  }
 
   useEffect(() => {
     const fetchNotices = async () => {
@@ -183,8 +240,9 @@ export default function HomePage({ user }: HomePageProps) {
     // Shuffle carousels every 30 minutes
     const interval = setInterval(
       () => {
-        setImportantCarouselIndex((i) => (i + 6) % Math.max(importantNotices.length, 6))
-        setFeaturedCarouselIndex((i) => (i + 6) % Math.max(featuredNotices.length, 6))
+        const itemsPerView = getItemsPerView()
+        setImportantCarouselIndex((i) => (i + itemsPerView) % Math.max(importantNotices.length, itemsPerView))
+        setFeaturedCarouselIndex((i) => (i + itemsPerView) % Math.max(featuredNotices.length, itemsPerView))
       },
       30 * 60 * 1000,
     )
@@ -192,28 +250,79 @@ export default function HomePage({ user }: HomePageProps) {
     return () => clearInterval(interval)
   }, [])
 
-  // Calculate displayed notices
-  const importantDisplayed = importantNotices.slice(importantCarouselIndex, importantCarouselIndex + 6)
-  const featuredDisplayed = featuredNotices.slice(featuredCarouselIndex, featuredCarouselIndex + 6)
+  // Calculate how many items to show based on screen size
+  const itemsPerView = getItemsPerView()
+  const importantDisplayed = importantNotices.slice(importantCarouselIndex, importantCarouselIndex + itemsPerView)
+  
+  // Calculate total pages for important notices (only show dots if more than can fit)
+  const totalImportantPages = Math.ceil(importantNotices.length / itemsPerView)
+  const currentImportantPage = Math.floor(importantCarouselIndex / itemsPerView)
+  
+  // Only show dots if there are more notices than can fit on screen
+  const showDots = importantNotices.length > itemsPerView
 
   // Carousel navigation handlers
   const handleImportantNext = () => {
-    setImportantCarouselIndex((i) => (i + 6) % Math.max(importantNotices.length, 6))
+    setImportantCarouselIndex((i) => {
+      const nextIndex = i + itemsPerView
+      return nextIndex >= importantNotices.length ? 0 : nextIndex
+    })
   }
 
   const handleImportantPrev = () => {
-    setImportantCarouselIndex(
-      (i) => (i - 6 + Math.max(importantNotices.length, 6)) % Math.max(importantNotices.length, 6),
-    )
+    setImportantCarouselIndex((i) => {
+      const prevIndex = i - itemsPerView
+      return prevIndex < 0 ? Math.max(0, importantNotices.length - itemsPerView) : prevIndex
+    })
   }
 
-  const handleFeaturedNext = () => {
-    setFeaturedCarouselIndex((i) => (i + 6) % Math.max(featuredNotices.length, 6))
+  // Handle scroll to update carousel index
+  const handleScroll = () => {
+    if (carouselContentRef.current && carouselContainerRef.current) {
+      const scrollLeft = carouselContainerRef.current.scrollLeft
+      const itemWidth = carouselContentRef.current.children[0]?.clientWidth || 280
+      const gap = 24 // gap-6 = 24px
+      const totalItemWidth = itemWidth + gap
+      
+      const newIndex = Math.round(scrollLeft / totalItemWidth)
+      if (newIndex !== currentImportantPage * itemsPerView) {
+        setImportantCarouselIndex(newIndex)
+      }
+    }
   }
 
-  const handleFeaturedPrev = () => {
-    setFeaturedCarouselIndex((i) => (i - 6 + Math.max(featuredNotices.length, 6)) % Math.max(featuredNotices.length, 6))
+  // Handle dot click navigation
+  const goToImportantPage = (pageIndex: number) => {
+    setImportantCarouselIndex(pageIndex * itemsPerView)
+    
+    // Scroll to position
+    if (carouselContentRef.current && carouselContainerRef.current) {
+      const itemWidth = carouselContentRef.current.children[0]?.clientWidth || 280
+      const gap = 24 // gap-6 = 24px
+      const totalItemWidth = itemWidth + gap
+      const scrollPosition = pageIndex * itemsPerView * totalItemWidth
+      
+      carouselContainerRef.current.scrollTo({
+        left: scrollPosition,
+        behavior: 'smooth'
+      })
+    }
   }
+
+  // Scroll to current position on index change
+  useEffect(() => {
+    if (carouselContentRef.current && carouselContainerRef.current) {
+      const itemWidth = carouselContentRef.current.children[0]?.clientWidth || 280
+      const gap = 24 // gap-6 = 24px
+      const totalItemWidth = itemWidth + gap
+      const scrollPosition = importantCarouselIndex * totalItemWidth
+      
+      carouselContainerRef.current.scrollTo({
+        left: scrollPosition,
+        behavior: 'smooth'
+      })
+    }
+  }, [importantCarouselIndex])
 
   if (loading) {
     return (
@@ -225,11 +334,6 @@ export default function HomePage({ user }: HomePageProps) {
     )
   }
 
-  // Debug output
-  console.log("Render - Important notices:", importantNotices.length)
-  console.log("Render - Featured notices:", featuredNotices.length)
-  console.log("Render - Random notices:", randomNotices.length)
-
   return (
     <div className="container mx-auto px-4 py-12">
       {/* Important Notices Section with Horizontal Scroll */}
@@ -237,8 +341,8 @@ export default function HomePage({ user }: HomePageProps) {
         <section className="mb-16">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-3xl font-bold text-red-600">Important Notices</h2>
-            {importantNotices.length > 6 && (
-              <div className="flex gap-2">
+            {showDots && (
+              <div className="hidden md:flex gap-2">
                 <Button size="icon" variant="outline" onClick={handleImportantPrev}>
                   <ChevronLeft size={20} />
                 </Button>
@@ -248,11 +352,41 @@ export default function HomePage({ user }: HomePageProps) {
               </div>
             )}
           </div>
+          
           <div className="relative">
-            <div className="overflow-x-auto scrollbar-hide">
-              <div className="flex gap-6 pb-4 min-w-min">
-                {importantDisplayed.map((notice) => (
-                  <div key={notice.id} className="w-[350px] flex-shrink-0">
+            {/* Mobile navigation buttons - show on small screens when dots are shown */}
+            {showDots && isMobile && (
+              <div className="flex justify-between items-center mb-4">
+                <Button size="icon" variant="outline" onClick={handleImportantPrev} className="z-10">
+                  <ChevronLeft size={20} />
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Swipe to navigate
+                </span>
+                <Button size="icon" variant="outline" onClick={handleImportantNext} className="z-10">
+                  <ChevronRight size={20} />
+                </Button>
+              </div>
+            )}
+            
+            {/* Horizontal Scroll Container */}
+            <div 
+              ref={carouselContainerRef}
+              className="overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onScroll={handleScroll}
+            >
+              <div 
+                ref={carouselContentRef}
+                className="flex gap-6 pb-4 min-w-min"
+              >
+                {importantNotices.map((notice) => (
+                  <div 
+                    key={notice.id} 
+                    className="w-[280px] md:w-[350px] flex-shrink-0 snap-start"
+                  >
                     <NoticeCard 
                       notice={notice} 
                       authorProfile={profiles[notice.author_id]} 
@@ -261,28 +395,45 @@ export default function HomePage({ user }: HomePageProps) {
                 ))}
               </div>
             </div>
+            
+            {/* Dot indicators - Only show when there are more items than can fit */}
+            {showDots && (
+              <div className="flex justify-center items-center gap-2 mt-6">
+                {Array.from({ length: totalImportantPages }).map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => goToImportantPage(index)}
+                    className={`transition-all duration-300 ease-in-out ${
+                      Math.floor(importantCarouselIndex / itemsPerView) === index 
+                        ? 'w-8 h-2 bg-red-600 rounded-full' 
+                        : 'w-2 h-2 bg-gray-300 rounded-full hover:bg-gray-400'
+                    }`}
+                    aria-label={`Go to page ${index + 1}`}
+                  />
+                ))}
+              </div>
+            )}
+            
+            {/* Progress indicator - Optional, can remove if you prefer just dots */}
+            {showDots && (
+              <div className="mt-2 text-center">
+                <span className="text-sm text-muted-foreground">
+                  {Math.floor(importantCarouselIndex / itemsPerView) + 1} of {totalImportantPages}
+                </span>
+              </div>
+            )}
           </div>
         </section>
       )}
 
-      {/* Featured Notices Carousel */}
+      {/* Featured Notices - Keep as grid */}
       {featuredNotices.length > 0 && (
         <section className="mb-16">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-3xl font-bold text-blue-600">Featured Notices</h2>
-            {featuredNotices.length > 6 && (
-              <div className="flex gap-2">
-                <Button size="icon" variant="outline" onClick={handleFeaturedPrev}>
-                  <ChevronLeft size={20} />
-                </Button>
-                <Button size="icon" variant="outline" onClick={handleFeaturedNext}>
-                  <ChevronRight size={20} />
-                </Button>
-              </div>
-            )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {featuredDisplayed.map((notice) => (
+            {featuredNotices.slice(0, 6).map((notice) => (
               <NoticeCard 
                 key={notice.id} 
                 notice={notice} 
