@@ -133,7 +133,7 @@ export function NoticeCreateModal({ open, onOpenChange }: NoticeCreateModalProps
 
       if (!user) throw new Error("Not authenticated")
 
-      // Create notice
+
       const { data: notice, error: noticeError } = await supabase
         .from("notices")
         .insert({
@@ -148,7 +148,7 @@ export function NoticeCreateModal({ open, onOpenChange }: NoticeCreateModalProps
 
       if (noticeError) throw noticeError
 
-      // Upload media
+
       const mediaUrls: MediaUrl[] = []
 
       for (const image of images) {
@@ -166,7 +166,7 @@ export function NoticeCreateModal({ open, onOpenChange }: NoticeCreateModalProps
         mediaUrls.push({ type: "file", url, isLink: false })
       }
 
-      // Add media URLs from web
+
       for (const imageUrl of imageUrls) {
         mediaUrls.push({ type: "image", url: imageUrl, isLink: true })
       }
@@ -179,7 +179,7 @@ export function NoticeCreateModal({ open, onOpenChange }: NoticeCreateModalProps
         mediaUrls.push({ type: "file", url: fileUrl, isLink: true })
       }
 
-      // Insert media records
+
       if (mediaUrls.length > 0) {
         const { error: mediaError } = await supabase.from("notice_media").insert(
           mediaUrls.map((m) => ({
@@ -195,7 +195,7 @@ export function NoticeCreateModal({ open, onOpenChange }: NoticeCreateModalProps
         }
       }
 
-      // Insert tags
+
       if (tags.length > 0) {
         const { data: existingTags } = await supabase
           .from("tags")

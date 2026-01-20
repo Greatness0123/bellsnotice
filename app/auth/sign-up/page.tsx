@@ -81,7 +81,7 @@ export default function SignUpPage() {
   const supabase = createClient()
 
   const validateMatricNumber = (matric: string): boolean => {
-    if (!matric) return true // optional field
+    if (!matric) return true
     const matricPattern = /^\d{4}\/\d+$/
     return matricPattern.test(matric)
   }

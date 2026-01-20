@@ -38,7 +38,7 @@ export default function NoticesPage() {
       if (!error && noticesData) {
         setNotices(noticesData as Notice[])
 
-        // Fetch profiles for all authors
+
         const authorIds = [...new Set(noticesData.map((n: Notice) => n.author_id))]
         const { data: profilesData } = await supabase
           .from("profiles")

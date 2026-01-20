@@ -63,7 +63,7 @@ export default function CreateNoticePage() {
         data: { user },
       } = await supabase.auth.getUser()
 
-      // Check if admin
+
       const adminAuth = sessionStorage.getItem("adminAuthenticated")
 
       if (!user && adminAuth !== "true") {
@@ -74,7 +74,7 @@ export default function CreateNoticePage() {
       setUser(user)
       setIsAdmin(adminAuth === "true")
 
-      // Check user type if regular user
+
       if (user) {
         const { data: profile } = await supabase.from("profiles").select("user_type").eq("id", user.id).single()
 
@@ -196,7 +196,7 @@ export default function CreateNoticePage() {
 
       if (insertError) throw insertError
 
-      // Upload media
+
       const mediaUrls: MediaUrl[] = []
 
       for (const image of images) {
@@ -214,7 +214,7 @@ export default function CreateNoticePage() {
         mediaUrls.push({ type: "file", url, isLink: false })
       }
 
-      // Add media URLs from web
+
       for (const imageUrl of imageUrls) {
         mediaUrls.push({ type: "image", url: imageUrl, isLink: true })
       }
@@ -227,7 +227,7 @@ export default function CreateNoticePage() {
         mediaUrls.push({ type: "file", url: fileUrl, isLink: true })
       }
 
-      // Insert media records
+
       if (mediaUrls.length > 0) {
         const { error: mediaError } = await supabase.from("notice_media").insert(
           mediaUrls.map((m) => ({
@@ -243,7 +243,7 @@ export default function CreateNoticePage() {
         }
       }
 
-      // Add tags if provided
+
       if (form.tags.length > 0) {
         const { data: existingTags } = await supabase
           .from("tags")

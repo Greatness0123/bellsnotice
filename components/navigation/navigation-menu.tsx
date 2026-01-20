@@ -22,7 +22,7 @@ export function NavigationMenu({ user }: NavigationMenuProps) {
   const pathname = usePathname()
   const supabase = createClient()
 
-  // Fetch unread request count
+
   useEffect(() => {
     if (!user) return
 
@@ -38,7 +38,7 @@ export function NavigationMenu({ user }: NavigationMenuProps) {
 
     fetchUnreadCount()
 
-    // Set up real-time subscription
+
     const channel = supabase
       .channel('request_updates')
       .on(
@@ -69,10 +69,10 @@ export function NavigationMenu({ user }: NavigationMenuProps) {
     if (isDragging && buttonRef.current) {
       const height = window.innerHeight
       const buttonHeight = buttonRef.current.offsetHeight
-      
+
       let newY = e.clientY
-      
-      // Keep button within viewport bounds
+
+
       if (newY < buttonHeight / 2) newY = buttonHeight / 2
       if (newY > height - buttonHeight / 2) newY = height - buttonHeight / 2
 
@@ -92,10 +92,10 @@ export function NavigationMenu({ user }: NavigationMenuProps) {
     if (isDragging) {
       const height = window.innerHeight
       const buttonHeight = buttonRef.current?.offsetHeight || 64
-      
+
       let newY = e.touches[0].clientY
-      
-      // Keep button within viewport bounds
+
+
       if (newY < buttonHeight / 2) newY = buttonHeight / 2
       if (newY > height - buttonHeight / 2) newY = height - buttonHeight / 2
 
@@ -107,14 +107,14 @@ export function NavigationMenu({ user }: NavigationMenuProps) {
     setIsDragging(false)
   }
 
-  // Add global mouse/touch event listeners
+
   useEffect(() => {
     if (isDragging) {
       document.addEventListener('mousemove', handleMouseMove)
       document.addEventListener('mouseup', handleMouseUp)
       document.addEventListener('touchmove', handleTouchMove)
       document.addEventListener('touchend', handleTouchEnd)
-      
+
       return () => {
         document.removeEventListener('mousemove', handleMouseMove)
         document.removeEventListener('mouseup', handleMouseUp)
@@ -163,7 +163,7 @@ export function NavigationMenu({ user }: NavigationMenuProps) {
           cursor: isDragging ? "grabbing" : "grab",
         }}
       >
-        {/* Main button with logo and notification badge */}
+
         <div className="relative">
           <button
             onClick={() => !isDragging && setIsOpen(!isOpen)}
@@ -179,8 +179,8 @@ export function NavigationMenu({ user }: NavigationMenuProps) {
               draggable={false}
             />
           </button>
-          
-          {/* Notification badge */}
+
+
           {unreadCount > 0 && (
             <div className="absolute -top-1 -right-1 bg-yellow-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg border-2 border-white pointer-events-none">
               {unreadCount > 9 ? '9+' : unreadCount}
@@ -188,7 +188,7 @@ export function NavigationMenu({ user }: NavigationMenuProps) {
           )}
         </div>
 
-        {/* Semicircle menu items */}
+
         {isOpen && !isDragging && (
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
             {menuItems.map((item, index) => {

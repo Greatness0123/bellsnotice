@@ -95,7 +95,7 @@ export default function NoticePage() {
       if (!noticeError && noticeData) {
         setNotice(noticeData)
 
-        // Fetch author profile with id included
+
         const { data: profileData } = await supabase
           .from("profiles")
           .select("id, display_name, profile_image_url")
@@ -106,7 +106,7 @@ export default function NoticePage() {
           setAuthor(profileData)
         }
 
-        // Fetch media
+
         const { data: mediaData, error: mediaError } = await supabase
           .from("notice_media")
           .select("*")
@@ -121,14 +121,14 @@ export default function NoticePage() {
           console.log("No media found for notice:", noticeId)
         }
 
-        // Track view only if user is authenticated
+
         if (user) {
           await supabase.from("notice_views").insert({
             notice_id: noticeId,
             user_id: user.id,
           })
 
-          // Update view count
+
           await supabase.rpc("increment_view_count", { notice_id: noticeId })
         }
       }
@@ -181,7 +181,7 @@ export default function NoticePage() {
       return
     }
 
-    // Organize comments by parent
+
     const commentMap: { [key: string]: Comment } = {}
     const topLevelComments: Comment[] = []
 
@@ -200,7 +200,7 @@ export default function NoticePage() {
       }
     })
 
-    // Sort top level by created_at descending
+
     topLevelComments.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
     setComments(topLevelComments)
@@ -305,7 +305,7 @@ export default function NoticePage() {
     }
 
     if (newReply) {
-      // Expand replies when a new reply is added
+
       setExpandedReplies((prev) => new Set(prev).add(parentId))
       await fetchComments()
     }
@@ -324,7 +324,7 @@ export default function NoticePage() {
       const shareUrl = window.location.href
       const shareText = `Check out this notice: ${notice?.title}`
 
-      // Try native share API first (works on mobile)
+
       if (navigator.share) {
         await navigator.share({
           title: notice?.title,
@@ -332,14 +332,14 @@ export default function NoticePage() {
           url: shareUrl,
         })
       } else {
-        // Fallback to clipboard copy
+
         await navigator.clipboard.writeText(`${shareText}\n${shareUrl}`)
         setShareSuccess(true)
         setTimeout(() => setShareSuccess(false), 2000)
       }
     } catch (err) {
       console.error("Share error:", err)
-      // If share fails, try clipboard as fallback
+
       try {
         await navigator.clipboard.writeText(window.location.href)
         setShareSuccess(true)
@@ -399,7 +399,7 @@ export default function NoticePage() {
 
   return (
     <div className="container mx-auto px-4 py-4 md:py-8 max-w-3xl">
-      {/* Mobile Back Button */}
+
       <div className="md:hidden sticky top-0 bg-white dark:bg-neutral-800 z-10 py-3 border-b">
         <Link href="/">
           <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -408,7 +408,7 @@ export default function NoticePage() {
         </Link>
       </div>
 
-      {/* Desktop Back Button */}
+
       <div className="hidden md:block mb-6">
         <Link href="/">
           <Button variant="ghost" size="sm">
@@ -419,7 +419,7 @@ export default function NoticePage() {
       </div>
 
       <article className="bg-white dark:bg-neutral-800 rounded-lg shadow p-4 md:p-8 mb-6 md:mb-8">
-        {/* Header Section */}
+
         <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 md:mb-6 gap-4">
           <div className="flex-1">
             <div className="flex flex-wrap gap-2 mb-3">
@@ -442,7 +442,7 @@ export default function NoticePage() {
           </div>
         </div>
 
-        {/* Author Section */}
+
         <Link href={`/profile/${author?.id}`}>
           <div className="flex items-center gap-3 md:gap-4 mb-4 md:mb-6 pb-4 md:pb-6 border-b hover:opacity-70 transition-opacity cursor-pointer">
             {author?.profile_image_url ? (
@@ -465,15 +465,15 @@ export default function NoticePage() {
           </div>
         </Link>
 
-        {/* Notice Content */}
+
         <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none mb-6 md:mb-8">
           <p className="whitespace-pre-wrap leading-relaxed">{notice.description}</p>
         </div>
 
-        {/* Media Section */}
+
         {media.length > 0 && (
           <div className="mb-6 md:mb-8 space-y-4 md:space-y-6">
-            {/* Images */}
+
             {images.length > 0 && (
               <div>
                 <h3 className="text-base md:text-lg font-semibold mb-2 md:mb-3">Images</h3>
@@ -494,7 +494,7 @@ export default function NoticePage() {
               </div>
             )}
 
-            {/* Videos */}
+
             {videos.length > 0 && (
               <div>
                 <h3 className="text-base md:text-lg font-semibold mb-2 md:mb-3">Videos</h3>
@@ -516,7 +516,7 @@ export default function NoticePage() {
               </div>
             )}
 
-            {/* Files */}
+
             {files.length > 0 && (
               <div>
                 <h3 className="text-base md:text-lg font-semibold mb-2 md:mb-3">Files</h3>
@@ -541,9 +541,9 @@ export default function NoticePage() {
           </div>
         )}
 
-        {/* Action Buttons - Responsive */}
+
         <div className="flex gap-2 md:gap-4 pt-4 border-t">
-          {/* Like Button */}
+
           <Button
             variant={hasReacted ? "default" : "outline"}
             onClick={handleReact}
@@ -556,7 +556,7 @@ export default function NoticePage() {
             <span className="ml-1 md:ml-2">({reactionCount})</span>
           </Button>
 
-          {/* Save Button - Icon only on mobile */}
+
           <Button
             variant="outline"
             onClick={handleSave}
@@ -577,7 +577,7 @@ export default function NoticePage() {
             {isSaved ? "Saved" : "Save"}
           </Button>
 
-          {/* Share Button - Icon only on mobile */}
+
           <Button
             variant="outline"
             onClick={handleShare}
@@ -609,7 +609,7 @@ export default function NoticePage() {
             )}
           </Button>
 
-          {/* Comment Count - Mobile only */}
+
           <div className="md:hidden flex items-center gap-1 text-sm text-muted-foreground ml-auto">
             <MessageSquare size={16} />
             <span>{comments.length}</span>
@@ -617,14 +617,14 @@ export default function NoticePage() {
         </div>
       </article>
 
-      {/* Comments Section */}
+
       {user ? (
         <div className="bg-white dark:bg-neutral-800 rounded-lg shadow p-4 md:p-8 mb-6 md:mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl md:text-2xl font-bold">Comments</h2>
             <span className="text-sm text-muted-foreground">{comments.length} comment{comments.length !== 1 ? 's' : ''}</span>
           </div>
-          
+
           <form onSubmit={handleAddComment} className="mb-6">
             <Textarea
               placeholder="Add a comment..."
@@ -651,7 +651,7 @@ export default function NoticePage() {
         </div>
       )}
 
-      {/* Comments List */}
+
       {comments.length > 0 && (
         <div className="bg-white dark:bg-neutral-800 rounded-lg shadow p-4 md:p-8">
           <h3 className="text-lg md:text-xl font-bold mb-4 md:mb-6">Comments ({comments.length})</h3>
@@ -666,7 +666,7 @@ export default function NoticePage() {
                   noticeAuthorId={notice.author_id}
                 />
 
-                {/* Replies Section */}
+
                 {comment.replies && comment.replies.length > 0 && (
                   <div className="ml-4 md:ml-6 border-l-2 border-neutral-200 dark:border-neutral-700 pl-3 md:pl-4">
                     <button
@@ -675,9 +675,8 @@ export default function NoticePage() {
                     >
                       <ChevronDown
                         size={14}
-                        className={`transition-transform ${
-                          expandedReplies.has(comment.id) ? "rotate-0" : "-rotate-90"
-                        }`}
+                        className={`transition-transform ${expandedReplies.has(comment.id) ? "rotate-0" : "-rotate-90"
+                          }`}
                       />
                       {expandedReplies.has(comment.id) ? "Hide" : "Show"} {comment.replies.length} repl
                       {comment.replies.length !== 1 ? "ies" : "y"}
@@ -727,7 +726,7 @@ export default function NoticePage() {
         </div>
       )}
 
-      {/* Media Lightbox Modal */}
+
       {selectedMedia && (
         <div
           className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-2 md:p-4"
@@ -760,7 +759,7 @@ export default function NoticePage() {
         </div>
       )}
 
-      {/* Mobile Bottom Padding */}
+
       <div className="h-4 md:hidden" />
     </div>
   )

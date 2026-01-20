@@ -84,7 +84,7 @@ const DEPARTMENTS = {
   ],
 }
 
-// Type definitions
+
 interface RequestMedia {
   id: string
   request_id: string
@@ -253,11 +253,11 @@ export default function DashboardPage() {
 
       setUserComments(commentsData as Comment[] || [])
 
-      // Fetch requests if user is a rep
+
       if (profile?.user_type === "rep") {
         console.log("Fetching requests for rep:", user.id)
-        
-        // Fetch pending requests
+
+
         const { data: pendingData, error: pendingError } = await supabase
           .from("notice_requests")
           .select("*")
@@ -269,8 +269,8 @@ export default function DashboardPage() {
           console.error("Error fetching pending requests:", pendingError)
         } else {
           console.log("Pending requests found:", pendingData?.length || 0)
-          
-          // Manually fetch requester data and media for each request
+
+
           if (pendingData && pendingData.length > 0) {
             const requestsWithData = await Promise.all(
               pendingData.map(async (request: SupabaseNoticeRequest) => {
@@ -279,8 +279,8 @@ export default function DashboardPage() {
                   .select("display_name, email")
                   .eq("id", request.requester_id)
                   .single()
-                
-                // Get email from auth.users if not in profile
+
+
                 let email = requesterData?.email || ""
                 if (!email) {
                   const { data: userData } = await supabase
@@ -288,19 +288,19 @@ export default function DashboardPage() {
                     .select("id")
                     .eq("id", request.requester_id)
                     .single()
-                  
+
                   if (userData) {
                     const { data: authData } = await supabase.auth.admin.getUserById(request.requester_id)
                     email = authData?.user?.email || ""
                   }
                 }
 
-                // Fetch media for this request
+
                 const { data: mediaData } = await supabase
                   .from("notice_request_media")
                   .select("*")
                   .eq("request_id", request.id)
-                
+
                 return {
                   ...request,
                   requester: {
@@ -311,14 +311,14 @@ export default function DashboardPage() {
                 } as NoticeRequest
               })
             )
-            
+
             setPendingRequests(requestsWithData)
           } else {
             setPendingRequests([])
           }
         }
 
-        // Fetch processed requests
+
         const { data: processedData, error: processedError } = await supabase
           .from("notice_requests")
           .select("*")
@@ -330,8 +330,8 @@ export default function DashboardPage() {
           console.error("Error fetching processed requests:", processedError)
         } else {
           console.log("Processed requests found:", processedData?.length || 0)
-          
-          // Manually fetch requester data and media for each request
+
+
           if (processedData && processedData.length > 0) {
             const requestsWithData = await Promise.all(
               processedData.map(async (request: SupabaseNoticeRequest) => {
@@ -340,8 +340,8 @@ export default function DashboardPage() {
                   .select("display_name, email")
                   .eq("id", request.requester_id)
                   .single()
-                
-                // Get email from auth.users if not in profile
+
+
                 let email = requesterData?.email || ""
                 if (!email) {
                   const { data: userData } = await supabase
@@ -349,19 +349,19 @@ export default function DashboardPage() {
                     .select("id")
                     .eq("id", request.requester_id)
                     .single()
-                  
+
                   if (userData) {
                     const { data: authData } = await supabase.auth.admin.getUserById(request.requester_id)
                     email = authData?.user?.email || ""
                   }
                 }
 
-                // Fetch media for this request
+
                 const { data: mediaData } = await supabase
                   .from("notice_request_media")
                   .select("*")
                   .eq("request_id", request.id)
-                
+
                 return {
                   ...request,
                   requester: {
@@ -372,7 +372,7 @@ export default function DashboardPage() {
                 } as NoticeRequest
               })
             )
-            
+
             setProcessedRequests(requestsWithData)
           } else {
             setProcessedRequests([])
@@ -500,13 +500,13 @@ export default function DashboardPage() {
     setIsProcessing(true)
 
     try {
-      // Fetch media files associated with this request from notice_request_media table
+
       const { data: requestMediaFiles } = await supabase
         .from("notice_request_media")
         .select("*")
         .eq("request_id", selectedRequest.id)
 
-      // Create the notice
+
       const { data: newNotice, error: noticeError } = await supabase
         .from("notices")
         .insert({
@@ -522,10 +522,10 @@ export default function DashboardPage() {
 
       if (noticeError) throw noticeError
 
-      // Link media files from notice_request_media to the new notice in notice_media table
+
       if (requestMediaFiles && requestMediaFiles.length > 0) {
         for (const media of requestMediaFiles) {
-          // Create a new entry in notice_media with the same media
+
           await supabase
             .from("notice_media")
             .insert({
@@ -535,8 +535,8 @@ export default function DashboardPage() {
             })
         }
       }
-      
-      // Update status to 'approved'
+
+
       const { error: updateError } = await supabase
         .from("notice_requests")
         .update({
@@ -549,10 +549,10 @@ export default function DashboardPage() {
 
       if (updateError) throw updateError
 
-      // Refresh requests
+
       await refreshRequests()
 
-      // Refresh notices
+
       const { data: noticesData } = await supabase
         .from("notices")
         .select("*")
@@ -576,7 +576,7 @@ export default function DashboardPage() {
     setIsProcessing(true)
 
     try {
-      // Update status to 'rejected'
+
       const { error: updateError } = await supabase
         .from("notice_requests")
         .update({
@@ -588,7 +588,7 @@ export default function DashboardPage() {
 
       if (updateError) throw updateError
 
-      // Refresh requests
+
       await refreshRequests()
 
       setIsResponseDialogOpen(false)
@@ -604,7 +604,7 @@ export default function DashboardPage() {
   const refreshRequests = async () => {
     if (!user) return
 
-    // Fetch pending requests
+
     const { data: pendingData, error: pendingError } = await supabase
       .from("notice_requests")
       .select("*")
@@ -620,13 +620,13 @@ export default function DashboardPage() {
             .select("display_name, email")
             .eq("id", request.requester_id)
             .single()
-          
-          // Fetch media for this request
+
+
           const { data: mediaData } = await supabase
             .from("notice_request_media")
             .select("*")
             .eq("request_id", request.id)
-          
+
           return {
             ...request,
             requester: {
@@ -642,7 +642,7 @@ export default function DashboardPage() {
       setPendingRequests([])
     }
 
-    // Fetch processed requests
+
     const { data: processedData, error: processedError } = await supabase
       .from("notice_requests")
       .select("*")
@@ -658,13 +658,13 @@ export default function DashboardPage() {
             .select("display_name, email")
             .eq("id", request.requester_id)
             .single()
-          
-          // Fetch media for this request
+
+
           const { data: mediaData } = await supabase
             .from("notice_request_media")
             .select("*")
             .eq("request_id", request.id)
-          
+
           return {
             ...request,
             requester: {
@@ -724,7 +724,7 @@ export default function DashboardPage() {
       </div>
 
       <Tabs defaultValue={defaultTab} className="w-full">
-        {/* Responsive Tabs with icons on smaller screens */}
+
         <div className="relative">
           <TabsList className={`grid w-full ${isRep ? 'grid-cols-5' : 'grid-cols-2'} overflow-x-auto no-scrollbar`}>
             <TabsTrigger value="profile" className="flex items-center gap-2">
@@ -759,7 +759,7 @@ export default function DashboardPage() {
               </TabsTrigger>
             )}
           </TabsList>
-          {/* Invisible scrollbar for better UX on mobile */}
+
           <style jsx>{`
             .no-scrollbar::-webkit-scrollbar {
               display: none;
@@ -771,7 +771,7 @@ export default function DashboardPage() {
           `}</style>
         </div>
 
-        {/* Profile Tab */}
+
         <TabsContent value="profile">
           <Card>
             <CardHeader>
@@ -870,17 +870,17 @@ export default function DashboardPage() {
                       <div className="grid gap-2">
                         <Label htmlFor="edit-college">College</Label>
                         <Select value={editForm.college} onValueChange={(val) => setEditForm({ ...editForm, college: val })}>
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="COLNAS">College of Natural and Applied Sciences</SelectItem>
-                              <SelectItem value="COLMANS">College of Management and Social Sciences</SelectItem>
-                              <SelectItem value="COLFAST">College of Agriculture, Food and Sustainable Development</SelectItem>
-                              <SelectItem value="COLENG">College of Engineering</SelectItem>
-                              <SelectItem value="COLENVS">College of Environmental Sciences</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="COLNAS">College of Natural and Applied Sciences</SelectItem>
+                            <SelectItem value="COLMANS">College of Management and Social Sciences</SelectItem>
+                            <SelectItem value="COLFAST">College of Agriculture, Food and Sustainable Development</SelectItem>
+                            <SelectItem value="COLENG">College of Engineering</SelectItem>
+                            <SelectItem value="COLENVS">College of Environmental Sciences</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="grid gap-2">
                         <Label htmlFor="edit-department">Department</Label>
@@ -1021,7 +1021,7 @@ export default function DashboardPage() {
           </Card>
         </TabsContent>
 
-        {/* Comments Tab */}
+
         <TabsContent value="comments">
           <Card>
             <CardHeader>
@@ -1062,7 +1062,7 @@ export default function DashboardPage() {
           </Card>
         </TabsContent>
 
-        {/* Rep-only: My Notices Tab */}
+
         {isRep && (
           <TabsContent value="notices">
             <Card>
@@ -1140,11 +1140,11 @@ export default function DashboardPage() {
           </TabsContent>
         )}
 
-        {/* Rep-only: Requests Tab */}
+
         {isRep && (
           <TabsContent value="requests">
             <div className="space-y-6">
-              {/* Pending Requests */}
+
               <Card>
                 <CardHeader>
                   <CardTitle>Pending Requests ({pendingRequests.length})</CardTitle>
@@ -1170,7 +1170,7 @@ export default function DashboardPage() {
 
                           <p className="text-sm">{request.description}</p>
 
-                          {/* Media Display Section */}
+
                           {request.media && request.media.length > 0 && (
                             <div className="space-y-2 border-t pt-3">
                               <p className="text-sm font-medium">Attached files ({request.media.length}):</p>
@@ -1245,7 +1245,7 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
-              {/* Processed Requests */}
+
               <Card>
                 <CardHeader>
                   <CardTitle>Processed Requests ({processedRequests.length})</CardTitle>
@@ -1278,7 +1278,7 @@ export default function DashboardPage() {
 
                           <p className="text-sm text-muted-foreground line-clamp-2">{request.description}</p>
 
-                          {/* Media Display Section for Processed Requests */}
+
                           {request.media && request.media.length > 0 && (
                             <div className="space-y-2 border-t pt-3">
                               <p className="text-sm font-medium">Attached files ({request.media.length}):</p>
@@ -1319,11 +1319,10 @@ export default function DashboardPage() {
                           )}
 
                           {request.response_message && (
-                            <div className={`p-3 rounded border text-sm ${
-                              request.status === "approved"
+                            <div className={`p-3 rounded border text-sm ${request.status === "approved"
                                 ? "bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800"
                                 : "bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800"
-                            }`}>
+                              }`}>
                               <p className="font-medium mb-1">Your response:</p>
                               <p className="text-sm">{request.response_message}</p>
                             </div>
@@ -1371,7 +1370,7 @@ export default function DashboardPage() {
           </TabsContent>
         )}
 
-        {/* Rep-only: Analytics Tab */}
+
         {isRep && (
           <TabsContent value="analytics">
             <Card>
@@ -1425,7 +1424,7 @@ export default function DashboardPage() {
         )}
       </Tabs>
 
-      {/* Response Dialog */}
+
       <Dialog open={isResponseDialogOpen} onOpenChange={setIsResponseDialogOpen}>
         <DialogContent>
           <DialogHeader>

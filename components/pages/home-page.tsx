@@ -6,7 +6,7 @@ import { NoticeCard } from "@/components/notice-card"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
-// Define types based on what NoticeCard expects
+
 type Notice = {
   id: string
   title: string
@@ -36,29 +36,29 @@ export default function HomePage({ user }: HomePageProps) {
   const [loading, setLoading] = useState(true)
   const [importantCarouselIndex, setImportantCarouselIndex] = useState(0)
   const [featuredCarouselIndex, setFeaturedCarouselIndex] = useState(0)
-  
-  // For touch/swipe functionality and scroll detection
+
+
   const [touchStart, setTouchStart] = useState<number | null>(null)
   const [touchEnd, setTouchEnd] = useState<number | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const carouselContainerRef = useRef<HTMLDivElement>(null)
   const carouselContentRef = useRef<HTMLDivElement>(null)
-  
+
   const supabase = createClient()
 
-  // Check if mobile on mount and resize
+
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768) // md breakpoint
+      setIsMobile(window.innerWidth < 768)
     }
-    
+
     checkMobile()
     window.addEventListener('resize', checkMobile)
-    
+
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Minimum swipe distance (in pixels)
+
   const minSwipeDistance = 50
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -72,11 +72,11 @@ export default function HomePage({ user }: HomePageProps) {
 
   const handleTouchEnd = () => {
     if (!touchStart || !touchEnd) return
-    
+
     const distance = touchStart - touchEnd
     const isLeftSwipe = distance > minSwipeDistance
     const isRightSwipe = distance < -minSwipeDistance
-    
+
     if (isLeftSwipe) {
       handleImportantNext()
     }
@@ -85,39 +85,39 @@ export default function HomePage({ user }: HomePageProps) {
     }
   }
 
-  // Calculate how many items can fit based on screen width
+
   const getItemsPerView = () => {
     if (typeof window === 'undefined') return 1
-    
+
     const screenWidth = window.innerWidth
-    if (screenWidth >= 1024) return 3 // lg: 3 per row
-    if (screenWidth >= 768) return 2  // md: 2 per row
-    return 1                         // mobile: 1 per row
+    if (screenWidth >= 1024) return 3
+    if (screenWidth >= 768) return 2
+    return 1
   }
 
   useEffect(() => {
     const fetchNotices = async () => {
       try {
         console.log("Fetching notices...")
-        
-        // Try selecting all columns first to see what's available
+
+
         const { data: allColumns, error: allColumnsError } = await supabase
           .from("notices")
           .select("*")
           .limit(1)
-          
+
         if (allColumnsError) {
           console.error("Error checking columns:", allColumnsError)
         }
-        
+
         if (allColumns && allColumns.length > 0) {
           console.log("Available columns in notices table:", Object.keys(allColumns[0]))
         }
 
-        // Fetch important notices - use content field as description
+
         const { data: importantData, error: importantError } = await supabase
           .from("notices")
-          .select("*")  // Use * to get all columns, then we'll map them
+          .select("*")
           .eq("is_important", true)
           .order("created_at", { ascending: false })
           .limit(20)
@@ -128,7 +128,7 @@ export default function HomePage({ user }: HomePageProps) {
           console.log("Important notices fetched:", importantData?.length)
         }
 
-        // Fetch featured notices
+
         const { data: featuredData, error: featuredError } = await supabase
           .from("notices")
           .select("*")
@@ -142,7 +142,7 @@ export default function HomePage({ user }: HomePageProps) {
           console.log("Featured notices fetched:", featuredData?.length)
         }
 
-        // Fetch all notices for random selection
+
         const { data: allData, error: allError } = await supabase
           .from("notices")
           .select("*")
@@ -155,15 +155,14 @@ export default function HomePage({ user }: HomePageProps) {
           console.log("All notices fetched:", allData?.length)
         }
 
-        // Transform data to match Notice type
-        // If your database has "content" field, use it as "description"
+
         const transformNotice = (notice: any): Notice => {
           console.log("Transforming notice:", notice.id, "Content field exists:", "content" in notice)
-          
+
           return {
             id: notice.id,
             title: notice.title || "",
-            // Use content field if description doesn't exist
+
             description: notice.description || notice.content || "",
             author_id: notice.author_id || "",
             created_at: notice.created_at || new Date().toISOString(),
@@ -181,14 +180,14 @@ export default function HomePage({ user }: HomePageProps) {
         console.log("Featured transformed:", featuredTransformed.length)
         console.log("All transformed:", allTransformed.length)
 
-        // Shuffle and get 12 random notices
+
         const randomSelected = [...allTransformed]
           .sort(() => Math.random() - 0.5)
           .slice(0, 12)
 
         console.log("Random selected:", randomSelected.length)
 
-        // Get unique author IDs
+
         const authorIds = [
           ...importantTransformed.map((n: Notice) => n.author_id),
           ...featuredTransformed.map((n: Notice) => n.author_id),
@@ -208,7 +207,7 @@ export default function HomePage({ user }: HomePageProps) {
             console.error("Error fetching profiles:", profilesError)
           } else {
             console.log("Profiles fetched:", profilesData?.length)
-            
+
             if (profilesData) {
               const profileMap = profilesData.reduce((acc: Record<string, Profile>, p: any) => {
                 acc[p.id] = {
@@ -227,7 +226,7 @@ export default function HomePage({ user }: HomePageProps) {
         setFeaturedNotices(featuredTransformed)
         setRandomNotices(randomSelected)
         console.log("State updated successfully")
-        
+
       } catch (error) {
         console.error("Error in fetchNotices:", error)
       } finally {
@@ -237,7 +236,7 @@ export default function HomePage({ user }: HomePageProps) {
 
     fetchNotices()
 
-    // Shuffle carousels every 30 minutes
+
     const interval = setInterval(
       () => {
         const itemsPerView = getItemsPerView()
@@ -250,18 +249,18 @@ export default function HomePage({ user }: HomePageProps) {
     return () => clearInterval(interval)
   }, [])
 
-  // Calculate how many items to show based on screen size
+
   const itemsPerView = getItemsPerView()
   const importantDisplayed = importantNotices.slice(importantCarouselIndex, importantCarouselIndex + itemsPerView)
-  
-  // Calculate total pages for important notices (only show dots if more than can fit)
+
+
   const totalImportantPages = Math.ceil(importantNotices.length / itemsPerView)
   const currentImportantPage = Math.floor(importantCarouselIndex / itemsPerView)
-  
-  // Only show dots if there are more notices than can fit on screen
+
+
   const showDots = importantNotices.length > itemsPerView
 
-  // Carousel navigation handlers
+
   const handleImportantNext = () => {
     setImportantCarouselIndex((i) => {
       const nextIndex = i + itemsPerView
@@ -276,14 +275,14 @@ export default function HomePage({ user }: HomePageProps) {
     })
   }
 
-  // Handle scroll to update carousel index
+
   const handleScroll = () => {
     if (carouselContentRef.current && carouselContainerRef.current) {
       const scrollLeft = carouselContainerRef.current.scrollLeft
       const itemWidth = carouselContentRef.current.children[0]?.clientWidth || 280
-      const gap = 24 // gap-6 = 24px
+      const gap = 24
       const totalItemWidth = itemWidth + gap
-      
+
       const newIndex = Math.round(scrollLeft / totalItemWidth)
       if (newIndex !== currentImportantPage * itemsPerView) {
         setImportantCarouselIndex(newIndex)
@@ -291,17 +290,17 @@ export default function HomePage({ user }: HomePageProps) {
     }
   }
 
-  // Handle dot click navigation
+
   const goToImportantPage = (pageIndex: number) => {
     setImportantCarouselIndex(pageIndex * itemsPerView)
-    
-    // Scroll to position
+
+
     if (carouselContentRef.current && carouselContainerRef.current) {
       const itemWidth = carouselContentRef.current.children[0]?.clientWidth || 280
-      const gap = 24 // gap-6 = 24px
+      const gap = 24
       const totalItemWidth = itemWidth + gap
       const scrollPosition = pageIndex * itemsPerView * totalItemWidth
-      
+
       carouselContainerRef.current.scrollTo({
         left: scrollPosition,
         behavior: 'smooth'
@@ -309,14 +308,14 @@ export default function HomePage({ user }: HomePageProps) {
     }
   }
 
-  // Scroll to current position on index change
+
   useEffect(() => {
     if (carouselContentRef.current && carouselContainerRef.current) {
       const itemWidth = carouselContentRef.current.children[0]?.clientWidth || 280
-      const gap = 24 // gap-6 = 24px
+      const gap = 24
       const totalItemWidth = itemWidth + gap
       const scrollPosition = importantCarouselIndex * totalItemWidth
-      
+
       carouselContainerRef.current.scrollTo({
         left: scrollPosition,
         behavior: 'smooth'
@@ -336,7 +335,7 @@ export default function HomePage({ user }: HomePageProps) {
 
   return (
     <div className="container mx-auto px-4 py-12">
-      {/* Important Notices Section with Horizontal Scroll */}
+
       {importantNotices.length > 0 && (
         <section className="mb-16">
           <div className="flex items-center justify-between mb-6">
@@ -352,25 +351,12 @@ export default function HomePage({ user }: HomePageProps) {
               </div>
             )}
           </div>
-          
+
           <div className="relative">
-            {/* Mobile navigation buttons - show on small screens when dots are shown */}
-            {/* {showDots && isMobile && (
-              <div className="flex justify-between items-center mb-4">
-                <Button size="icon" variant="outline" onClick={handleImportantPrev} className="z-10">
-                  <ChevronLeft size={20} />
-                </Button>
-                <span className="text-sm text-muted-foreground">
-                  Swipe to navigate
-                </span>
-                <Button size="icon" variant="outline" onClick={handleImportantNext} className="z-10">
-                  <ChevronRight size={20} />
-                </Button>
-              </div>
-            )} */}
-            
-            {/* Horizontal Scroll Container */}
-            <div 
+
+
+
+            <div
               ref={carouselContainerRef}
               className="overflow-x-auto scrollbar-hide snap-x snap-mandatory"
               onTouchStart={handleTouchStart}
@@ -378,43 +364,42 @@ export default function HomePage({ user }: HomePageProps) {
               onTouchEnd={handleTouchEnd}
               onScroll={handleScroll}
             >
-              <div 
+              <div
                 ref={carouselContentRef}
                 className="flex gap-6 pb-4 min-w-min"
               >
                 {importantNotices.map((notice) => (
-                  <div 
-                    key={notice.id} 
+                  <div
+                    key={notice.id}
                     className="w-[280px] md:w-[350px] flex-shrink-0 snap-start"
                   >
-                    <NoticeCard 
-                      notice={notice} 
-                      authorProfile={profiles[notice.author_id]} 
+                    <NoticeCard
+                      notice={notice}
+                      authorProfile={profiles[notice.author_id]}
                     />
                   </div>
                 ))}
               </div>
             </div>
-            
-            {/* Dot indicators - Only show when there are more items than can fit */}
+
+
             {showDots && (
               <div className="flex justify-center items-center gap-2 mt-6">
                 {Array.from({ length: totalImportantPages }).map((_, index) => (
                   <button
                     key={index}
                     onClick={() => goToImportantPage(index)}
-                    className={`transition-all duration-300 ease-in-out ${
-                      Math.floor(importantCarouselIndex / itemsPerView) === index 
-                        ? 'w-8 h-2 bg-red-600 rounded-full' 
+                    className={`transition-all duration-300 ease-in-out ${Math.floor(importantCarouselIndex / itemsPerView) === index
+                        ? 'w-8 h-2 bg-red-600 rounded-full'
                         : 'w-2 h-2 bg-gray-300 rounded-full hover:bg-gray-400'
-                    }`}
+                      }`}
                     aria-label={`Go to page ${index + 1}`}
                   />
                 ))}
               </div>
             )}
-            
-            {/* Progress indicator - Optional, can remove if you prefer just dots */}
+
+
             {showDots && (
               <div className="mt-2 text-center">
                 <span className="text-sm text-muted-foreground">
@@ -426,7 +411,7 @@ export default function HomePage({ user }: HomePageProps) {
         </section>
       )}
 
-      {/* Featured Notices - Keep as grid */}
+
       {featuredNotices.length > 0 && (
         <section className="mb-16">
           <div className="flex items-center justify-between mb-6">
@@ -434,26 +419,26 @@ export default function HomePage({ user }: HomePageProps) {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {featuredNotices.slice(0, 6).map((notice) => (
-              <NoticeCard 
-                key={notice.id} 
-                notice={notice} 
-                authorProfile={profiles[notice.author_id]} 
+              <NoticeCard
+                key={notice.id}
+                notice={notice}
+                authorProfile={profiles[notice.author_id]}
               />
             ))}
           </div>
         </section>
       )}
 
-      {/* Random Notices Grid */}
+
       <section>
         <h2 className="text-3xl font-bold mb-6">Latest Notices</h2>
         {randomNotices.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {randomNotices.map((notice) => (
-              <NoticeCard 
-                key={notice.id} 
-                notice={notice} 
-                authorProfile={profiles[notice.author_id]} 
+              <NoticeCard
+                key={notice.id}
+                notice={notice}
+                authorProfile={profiles[notice.author_id]}
               />
             ))}
           </div>

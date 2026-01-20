@@ -23,7 +23,7 @@ export default function FilterPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      // Fetch all notices
+
       const { data: noticesData } = await supabase.from("notices").select("*").order("created_at", { ascending: false })
 
       if (noticesData) {
@@ -44,7 +44,7 @@ export default function FilterPage() {
         }
       }
 
-      // Fetch all tags
+
       const { data: tagsData } = await supabase.from("tags").select("*").order("name")
 
       if (tagsData) {
@@ -114,14 +114,14 @@ export default function FilterPage() {
       </Link>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Filters Sidebar */}
+
         <Card className="lg:col-span-1 h-fit">
           <CardHeader>
             <CardTitle>Filters</CardTitle>
             <CardDescription>Refine your search</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Important Filter */}
+
             <div>
               <div className="flex items-center space-x-2 mb-2">
                 <Checkbox
@@ -135,7 +135,7 @@ export default function FilterPage() {
               </div>
             </div>
 
-            {/* Featured Filter */}
+
             <div>
               <div className="flex items-center space-x-2 mb-2">
                 <Checkbox
@@ -149,7 +149,7 @@ export default function FilterPage() {
               </div>
             </div>
 
-            {/* Tags Filter */}
+
             {tags.length > 0 && (
               <div>
                 <h4 className="font-semibold text-sm mb-3">Tags</h4>
@@ -184,7 +184,7 @@ export default function FilterPage() {
           </CardContent>
         </Card>
 
-        {/* Results */}
+
         <div className="lg:col-span-3">
           <h1 className="text-4xl font-bold mb-8">
             Notices

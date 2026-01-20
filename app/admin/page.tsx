@@ -32,7 +32,7 @@ export default function AdminPage() {
   const supabase = createClient()
 
   useEffect(() => {
-    // Check if admin is authenticated
+
     const adminAuth = sessionStorage.getItem("adminAuthenticated")
     if (adminAuth !== "true") {
       router.push("/")
@@ -56,14 +56,14 @@ export default function AdminPage() {
         }
 
         if (data) {
-          // Fetch author profiles separately
+
           const authorIds = [...new Set(data.map((item: any) => item.author_id))]
           const { data: profiles } = await supabase
             .from("profiles")
             .select("id, display_name, profile_image_url")
             .in("id", authorIds)
 
-          // Map profiles to notices
+
           const profileMap: Record<string, any> = {}
           profiles?.forEach((profile: any) => {
             profileMap[profile.id] = profile
@@ -173,7 +173,7 @@ export default function AdminPage() {
           <TabsTrigger value="featured">Featured ({featuredNotices.length})</TabsTrigger>
         </TabsList>
 
-        {/* All Notices Tab */}
+
         <TabsContent value="all">
           <Card>
             <CardHeader>
@@ -249,7 +249,7 @@ export default function AdminPage() {
           </Card>
         </TabsContent>
 
-        {/* Important Notices Tab */}
+
         <TabsContent value="important">
           <Card>
             <CardHeader>
@@ -297,7 +297,7 @@ export default function AdminPage() {
           </Card>
         </TabsContent>
 
-        {/* Featured Notices Tab */}
+
         <TabsContent value="featured">
           <Card>
             <CardHeader>

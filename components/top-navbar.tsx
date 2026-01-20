@@ -51,19 +51,18 @@ export function TopNavbar({ user }: TopNavbarProps) {
     <>
       <nav className="fixed top-0 left-0 right-0 z-40 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 shadow-sm">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-          {/* Left - Logo or Title */}
-          <div className="flex-1">
+                 <div className="flex-1">
             <Link href="/" className="text-lg font-bold text-black-600">
               Bells Notice
             </Link>
           </div>
 
-          {/* Center - Empty for spacing */}
+          
           <div className="flex-1"></div>
 
-          {/* Right - Profile and Actions */}
+          
           <div className="flex items-center gap-4">
-            {/* Add Notice or Request Button */}
+            
             {isRep ? (
               <Button size="sm" onClick={() => setCreateNoticeOpen(true)} className="flex items-center gap-2">
                 <Plus size={16} />
@@ -78,7 +77,7 @@ export function TopNavbar({ user }: TopNavbarProps) {
               </Link>
             )}
 
-            {/* Profile Picture */}
+           
             <Link href={`/profile/${user.id}`}>
               <button className="w-10 h-10 rounded-full overflow-hidden border-2 border-neutral-200 dark:border-neutral-700 hover:border-red-500 transition-colors">
                 {profile?.profile_image_url ? (

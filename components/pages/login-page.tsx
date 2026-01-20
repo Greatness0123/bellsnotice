@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label"
 
 export default function LoginPage() {
-  const [credential, setCredential] = useState("") // renamed from email to support both email and matric
+  const [credential, setCredential] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -29,7 +29,7 @@ export default function LoginPage() {
     try {
       let email = credential
 
-      // If credential looks like matric number (contains /), fetch user by matric and get email
+
       if (credential.includes("/")) {
         const { data: profiles } = await supabase
           .from("profiles")
@@ -60,9 +60,9 @@ export default function LoginPage() {
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault()
     if (adminPassword === "adminnotice") {
-      // Set the admin authentication flag
+
       sessionStorage.setItem("adminAuthenticated", "true")
-      // Small delay to ensure sessionStorage is set before navigation
+
       setTimeout(() => {
         router.push("/admin")
         router.refresh()

@@ -61,7 +61,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
   const { id } = await params
   const supabase = await createClient()
 
-  // Fetch profile information
+
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", id).single()
 
   if (!profile) {
@@ -83,7 +83,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
   const typedProfile = profile as Profile
   const isRep = typedProfile.user_type === "rep"
 
-  // Fetch author's notices (only for reps)
+
   let notices: Notice[] = []
   if (isRep) {
     const { data: noticesData } = await supabase
@@ -94,7 +94,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     notices = noticesData || []
   }
 
-  // Fetch user's comments
+
   const { data: comments } = await supabase
     .from("comments")
     .select("*, notices(title, id)")
@@ -102,7 +102,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     .order("created_at", { ascending: false })
   const typedComments = (comments || []) as Comment[]
 
-  // Fetch notice requests (only for regular users)
+
   let noticeRequests: NoticeRequest[] = []
   if (!isRep) {
     const { data: requestsData } = await supabase
@@ -112,7 +112,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
       .order("created_at", { ascending: false })
 
     if (requestsData && requestsData.length > 0) {
-      // Fetch rep information for each request
+
       const requestsWithReps = await Promise.all(
         requestsData.map(async (request) => {
           const { data: repData } = await supabase
@@ -159,13 +159,13 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     }
   }
 
-  // Calculate total tabs
+
   const totalTabs = isRep ? 2 : 2 // Notices/Comments or Requests/Comments
   const defaultTab = isRep ? "notices" : "requests"
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
-      {/* Back Button */}
+
       <div className="mb-6 sm:mb-8">
         <Link href="/" className="inline-block">
           <Button variant="outline" size="sm" className="bg-background hover:bg-accent">
@@ -176,11 +176,11 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
         </Link>
       </div>
 
-      {/* Profile Header */}
+
       <Card className="mb-8 sm:mb-12">
         <CardHeader className="p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6">
-            {/* Profile Image */}
+
             <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-muted flex items-center justify-center flex-shrink-0 border-4 border-background shadow-sm">
               {typedProfile.profile_image_url ? (
                 <img
@@ -195,17 +195,16 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
               )}
             </div>
 
-            {/* Profile Info */}
+
             <div className="flex-1 text-center sm:text-left">
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
                 <CardTitle className="text-2xl sm:text-3xl font-bold">
                   {typedProfile.display_name || "User"}
                 </CardTitle>
-                <div className={`inline-flex px-3 py-1.5 rounded-full text-xs font-semibold w-fit mx-auto sm:mx-0 ${
-                  isRep
+                <div className={`inline-flex px-3 py-1.5 rounded-full text-xs font-semibold w-fit mx-auto sm:mx-0 ${isRep
                     ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800"
                     : "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800"
-                }`}>
+                  }`}>
                   {isRep ? "Class Representative" : "Student"}
                 </div>
               </div>
@@ -241,7 +240,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
         </CardHeader>
       </Card>
 
-      {/* Tabs */}
+
       <div className="space-y-6">
         <Tabs defaultValue={defaultTab} className="w-full">
           <div className="overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -284,7 +283,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
             </TabsList>
           </div>
 
-          {/* Notices Tab (Rep Only) */}
+
           {isRep && (
             <TabsContent value="notices" className="mt-8 space-y-6 animate-in fade-in duration-300">
               <div>
@@ -293,8 +292,8 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {notices.map((notice) => (
                       <div key={notice.id} className="h-full">
-                        <NoticeCard 
-                          notice={notice} 
+                        <NoticeCard
+                          notice={notice}
                           authorProfile={{
                             id: typedProfile.id,
                             display_name: typedProfile.display_name || "User",
@@ -321,7 +320,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
             </TabsContent>
           )}
 
-          {/* Requested Notices Tab (Regular Users Only) */}
+
           {!isRep && (
             <TabsContent value="requests" className="mt-8 space-y-6 animate-in fade-in duration-300">
               <div>
@@ -332,7 +331,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
                       <Card key={request.id} className="hover:shadow-md transition-all duration-200 hover:border-primary/20">
                         <CardContent className="p-4 sm:p-6">
                           <div className="space-y-4">
-                            {/* Header */}
+
                             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                               <div className="flex-1 space-y-2">
                                 <h3 className="font-semibold text-base sm:text-lg leading-tight">
@@ -349,19 +348,18 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
                               </div>
                             </div>
 
-                            {/* Description */}
+
                             <p className="text-sm text-muted-foreground line-clamp-2">
                               {request.description}
                             </p>
 
-                            {/* Response Message */}
+
                             {request.status !== "pending" && request.response_message && (
                               <div
-                                className={`p-4 rounded-lg border text-sm ${
-                                  request.status === "approved"
+                                className={`p-4 rounded-lg border text-sm ${request.status === "approved"
                                     ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
                                     : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
-                                }`}
+                                  }`}
                               >
                                 <div className="flex items-center gap-2 mb-2">
                                   {request.status === "approved" ? (
@@ -377,7 +375,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
                               </div>
                             )}
 
-                            {/* Footer */}
+
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-muted-foreground pt-3 border-t">
                               <span className="flex items-center gap-1">
                                 <Clock size={12} />
@@ -391,7 +389,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
                               )}
                             </div>
 
-                            {/* View Notice Button */}
+
                             {request.status === "approved" && request.notice_id && (
                               <div className="pt-2">
                                 <Link href={`/notice/${request.notice_id}`}>
@@ -423,7 +421,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
             </TabsContent>
           )}
 
-          {/* Comments Tab */}
+
           <TabsContent value="comments" className="mt-8 space-y-6 animate-in fade-in duration-300">
             <div>
               <h2 className="text-xl sm:text-2xl font-bold mb-6">Comments</h2>
@@ -433,7 +431,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
                     <Card key={comment.id} className="hover:shadow-md transition-all duration-200">
                       <CardContent className="p-4 sm:p-6">
                         <div className="space-y-3">
-                          {/* Notice Link */}
+
                           {comment.notices?.id && (
                             <Link href={`/notice/${comment.notices.id}`} className="block">
                               <div className="flex items-center gap-2 mb-2 group">
@@ -445,12 +443,12 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
                             </Link>
                           )}
 
-                          {/* Comment Content */}
+
                           <div className="bg-muted/30 rounded-lg p-4">
                             <p className="text-sm sm:text-base text-foreground">{comment.content}</p>
                           </div>
 
-                          {/* Timestamp */}
+
                           <div className="flex items-center justify-between text-xs text-muted-foreground pt-2">
                             <div className="flex items-center gap-1">
                               <Clock size={12} />

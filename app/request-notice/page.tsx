@@ -82,7 +82,7 @@ export default function RequestNoticePage() {
     selectedRepId: "",
   })
 
-  // Media state for uploads and links
+
   const [images, setImages] = useState<File[]>([])
   const [videos, setVideos] = useState<File[]>([])
   const [files, setFiles] = useState<File[]>([])
@@ -93,7 +93,7 @@ export default function RequestNoticePage() {
   const [videoUrlInput, setVideoUrlInput] = useState("")
   const [fileUrlInput, setFileUrlInput] = useState("")
 
-  // Initial load - check user and fetch reps
+
   useEffect(() => {
     const checkUserAndLoadData = async () => {
       try {
@@ -106,7 +106,7 @@ export default function RequestNoticePage() {
 
         setUser(authUser)
 
-        // Verify user is a regular user (not a rep)
+
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("user_type")
@@ -124,7 +124,7 @@ export default function RequestNoticePage() {
           return
         }
 
-        // Fetch all reps
+
         const { data: repsData, error: repsError } = await supabase
           .from("profiles")
           .select("id, display_name, user_type")
@@ -148,7 +148,7 @@ export default function RequestNoticePage() {
     checkUserAndLoadData()
   }, [router, supabase])
 
-  // Fetch user's requests
+
   useEffect(() => {
     const fetchUserRequests = async () => {
       if (!user) return
@@ -171,7 +171,7 @@ export default function RequestNoticePage() {
           return
         }
 
-        // Fetch rep information for each request
+
         const requestsWithReps = await Promise.all(
           requestsData.map(async (request: SupabaseNoticeRequest) => {
             const { data: repData } = await supabase
@@ -197,7 +197,7 @@ export default function RequestNoticePage() {
     fetchUserRequests()
   }, [user, supabase])
 
-  // File upload handlers
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: "images" | "videos" | "files") => {
     const selectedFiles = Array.from(e.target.files || [])
     if (type === "images") setImages([...images, ...selectedFiles])
@@ -205,7 +205,7 @@ export default function RequestNoticePage() {
     if (type === "files") setFiles([...files, ...selectedFiles])
   }
 
-  // URL handlers
+
   const handleAddImageUrl = () => {
     if (imageUrlInput.trim() && isValidUrl(imageUrlInput.trim())) {
       setImageUrls([...imageUrls, imageUrlInput.trim()])
@@ -233,7 +233,7 @@ export default function RequestNoticePage() {
     }
   }
 
-  // Remove handlers
+
   const handleRemoveImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index))
   }
@@ -258,7 +258,7 @@ export default function RequestNoticePage() {
     setFileUrls(fileUrls.filter((_, i) => i !== index))
   }
 
-  // Helper function to validate URLs
+
   const isValidUrl = (url: string) => {
     try {
       new URL(url)
@@ -279,34 +279,7 @@ export default function RequestNoticePage() {
     setError(null)
   }
 
-  // Upload file to storage - COMMENTED OUT FOR NOW
-  /*
-  const uploadFile = async (file: File, bucket: string, path: string): Promise<string> => {
-    const timestamp = Date.now()
-    const randomId = Math.random().toString(36).substring(7)
-    const fileExtension = file.name.split('.').pop()
-    const uniqueFileName = `${timestamp}-${randomId}.${fileExtension}`
-    const fileName = `${path}/${user?.id}/${uniqueFileName}`
-    
-    const { data, error: uploadError } = await supabase.storage
-      .from(bucket)
-      .upload(fileName, file, {
-        cacheControl: '3600',
-        upsert: false
-      })
 
-    if (uploadError) {
-      console.error("Upload error:", uploadError)
-      throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`)
-    }
-
-    const { data: urlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(fileName)
-
-    return urlData.publicUrl
-  }
-  */
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -357,58 +330,9 @@ export default function RequestNoticePage() {
         throw new Error("Failed to create request. Please try again.")
       }
 
-      // Prepare all media items (both uploaded files and links)
       const mediaItems: MediaItem[] = []
 
-      // COMMENTED OUT: File upload functionality temporarily disabled
-      /*
-      // Upload and add uploaded images
-      for (const image of images) {
-        try {
-          const url = await uploadFile(image, "bellsnotice", "request/images")
-          mediaItems.push({
-            type: "image",
-            url,
-            isLink: false,
-            name: image.name
-          })
-        } catch (err) {
-          console.error("Error uploading image:", image.name, err)
-        }
-      }
 
-      // Upload and add uploaded videos
-      for (const video of videos) {
-        try {
-          const url = await uploadFile(video, "bellsnotice", "request/videos")
-          mediaItems.push({
-            type: "video",
-            url,
-            isLink: false,
-            name: video.name
-          })
-        } catch (err) {
-          console.error("Error uploading video:", video.name, err)
-        }
-      }
-
-      // Upload and add uploaded files
-      for (const file of files) {
-        try {
-          const url = await uploadFile(file, "bellsnotice", "request/files")
-          mediaItems.push({
-            type: "file",
-            url,
-            isLink: false,
-            name: file.name
-          })
-        } catch (err) {
-          console.error("Error uploading file:", file.name, err)
-        }
-      }
-      */
-
-      // Add image URLs
       for (const imageUrl of imageUrls) {
         mediaItems.push({
           type: "image",
@@ -417,7 +341,7 @@ export default function RequestNoticePage() {
         })
       }
 
-      // Add video URLs
+
       for (const videoUrl of videoUrls) {
         mediaItems.push({
           type: "video",
@@ -426,7 +350,7 @@ export default function RequestNoticePage() {
         })
       }
 
-      // Add file URLs
+
       for (const fileUrl of fileUrls) {
         mediaItems.push({
           type: "file",
@@ -435,7 +359,7 @@ export default function RequestNoticePage() {
         })
       }
 
-      // Insert media records if we have any
+
       if (mediaItems.length > 0) {
         const mediaRecords = mediaItems.map((item) => ({
           request_id: newRequest.id,
@@ -455,13 +379,13 @@ export default function RequestNoticePage() {
         }
       }
 
-      // Reset form
+
       setForm({
         title: "",
         description: "",
         selectedRepId: "",
       })
-      // Reset all media states
+
       setImages([])
       setVideos([])
       setFiles([])
@@ -471,10 +395,10 @@ export default function RequestNoticePage() {
       setImageUrlInput("")
       setVideoUrlInput("")
       setFileUrlInput("")
-      
+
       setSuccessMessage("Request submitted successfully! The rep will review it shortly.")
 
-      // Refresh requests list
+
       setTimeout(async () => {
         const { data: updatedRequests } = await supabase
           .from("notice_requests")
@@ -537,7 +461,7 @@ export default function RequestNoticePage() {
     }
   }
 
-  // Calculate total files count for display
+
   const totalUploadedFiles = images.length + videos.length + files.length
   const totalUrls = imageUrls.length + videoUrls.length + fileUrls.length
 
@@ -566,7 +490,7 @@ export default function RequestNoticePage() {
       </Link>
 
       <div className="grid gap-6">
-        {/* Submit New Request Card */}
+
         <Card>
           <CardHeader>
             <div>
@@ -578,7 +502,7 @@ export default function RequestNoticePage() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Select Rep */}
+
               <div className="grid gap-2">
                 <Label htmlFor="rep" className="text-base font-semibold">
                   Select Rep <span className="text-red-500">*</span>
@@ -607,7 +531,7 @@ export default function RequestNoticePage() {
                 </select>
               </div>
 
-              {/* Title - FIXED: Added container to prevent overflow */}
+
               <div className="grid gap-2">
                 <div className="flex justify-between items-center">
                   <Label htmlFor="title" className="text-base font-semibold">
@@ -629,7 +553,7 @@ export default function RequestNoticePage() {
                 />
               </div>
 
-              {/* Description - FIXED: Added container to prevent overflow */}
+
               <div className="grid gap-2">
                 <div className="flex justify-between items-center">
                   <Label htmlFor="description" className="text-base font-semibold">
@@ -652,7 +576,7 @@ export default function RequestNoticePage() {
                 />
               </div>
 
-              {/* Media Upload Section */}
+
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">Media Attachments</CardTitle>
@@ -666,7 +590,7 @@ export default function RequestNoticePage() {
                   )}
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {/* Images */}
+
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="images">Images (Upload)</Label>
@@ -736,7 +660,7 @@ export default function RequestNoticePage() {
                     </div>
                   </div>
 
-                  {/* Videos */}
+
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="videos">Videos (Upload)</Label>
@@ -878,7 +802,7 @@ export default function RequestNoticePage() {
                 </CardContent>
               </Card>
 
-              {/* Error Message */}
+
               {error && (
                 <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                   <p className="text-sm text-red-700 dark:text-red-400 font-medium">
@@ -887,7 +811,7 @@ export default function RequestNoticePage() {
                 </div>
               )}
 
-              {/* Success Message */}
+
               {successMessage && (
                 <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
                   <p className="text-sm text-green-700 dark:text-green-400 font-medium">
@@ -896,7 +820,7 @@ export default function RequestNoticePage() {
                 </div>
               )}
 
-              {/* Submit Buttons */}
+
               <div className="flex gap-3 pt-4">
                 <Button
                   type="submit"
@@ -915,7 +839,7 @@ export default function RequestNoticePage() {
                       description: "",
                       selectedRepId: "",
                     })
-                    // Clear all media
+
                     setImages([])
                     setVideos([])
                     setFiles([])
@@ -938,7 +862,7 @@ export default function RequestNoticePage() {
           </CardContent>
         </Card>
 
-        {/* Request History Card */}
+
         <Card>
           <CardHeader>
             <div>
@@ -956,7 +880,7 @@ export default function RequestNoticePage() {
                     key={request.id}
                     className="border border-neutral-200 dark:border-neutral-800 rounded-lg p-5 space-y-4 bg-neutral-50 dark:bg-neutral-900/50 hover:bg-neutral-100 dark:hover:bg-neutral-900 transition-colors"
                   >
-                    {/* Header with title and status */}
+
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-lg text-foreground truncate">
@@ -973,19 +897,18 @@ export default function RequestNoticePage() {
                       </div>
                     </div>
 
-                    {/* Description - FIXED: Added max-width and word-wrap */}
+
                     <p className="text-sm text-muted-foreground line-clamp-2 break-words">
                       {request.description}
                     </p>
 
-                    {/* Rep's Response (if available) */}
+
                     {request.status !== "pending" && request.response_message && (
                       <div
-                        className={`p-4 rounded-lg border ${
-                          request.status === "approved"
-                            ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
-                            : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
-                        }`}
+                        className={`p-4 rounded-lg border ${request.status === "approved"
+                          ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                          : "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                          }`}
                       >
                         <p className="text-sm font-semibold mb-2 flex items-center gap-2">
                           {request.status === "approved" ? (
@@ -1006,7 +929,7 @@ export default function RequestNoticePage() {
                       </div>
                     )}
 
-                    {/* Timeline info */}
+
                     <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-neutral-200 dark:border-neutral-800 text-xs text-muted-foreground">
                       <span className="break-words">
                         Submitted: {new Date(request.created_at).toLocaleString()}

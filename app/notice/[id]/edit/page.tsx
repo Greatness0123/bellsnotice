@@ -52,7 +52,7 @@ export default function NoticeEditPage() {
   useEffect(() => {
     const loadNotice = async () => {
       try {
-        // Check authentication
+
         const {
           data: { user },
         } = await supabase.auth.getUser()
@@ -64,7 +64,7 @@ export default function NoticeEditPage() {
 
         setUser(user)
 
-        // Fetch notice details
+
         const { data: notice, error: noticeError } = await supabase
           .from("notices")
           .select("*")
@@ -73,19 +73,19 @@ export default function NoticeEditPage() {
 
         if (noticeError) throw noticeError
 
-        // Check if user is the author
+
         if (notice.author_id !== user.id) {
           router.push("/dashboard")
           return
         }
 
-        // Populate form with notice data
+
         setTitle(notice.title)
         setDescription(notice.description)
         setIsImportant(notice.is_important || false)
         setExpiryDate(notice.expires_at ? new Date(notice.expires_at).toISOString().slice(0, 16) : "")
 
-        // Fetch tags
+
         const { data: noticeTags } = await supabase
           .from("notice_tags")
           .select("tags(name)")
@@ -95,7 +95,7 @@ export default function NoticeEditPage() {
           setTags(noticeTags.map((nt: any) => nt.tags.name))
         }
 
-        // Fetch media
+
         const { data: mediaData } = await supabase.from("notice_media").select("*").eq("notice_id", noticeId)
 
         if (mediaData) {
@@ -158,7 +158,7 @@ export default function NoticeEditPage() {
         throw new Error("Title and description are required")
       }
 
-      // Update notice
+
       const { error: noticeError } = await supabase
         .from("notices")
         .update({
@@ -171,7 +171,7 @@ export default function NoticeEditPage() {
 
       if (noticeError) throw noticeError
 
-      // Upload new media
+
       const mediaUrls: MediaUrl[] = []
 
       for (const image of images) {
@@ -189,7 +189,7 @@ export default function NoticeEditPage() {
         mediaUrls.push({ type: "file", url })
       }
 
-      // Insert new media records
+
       if (mediaUrls.length > 0) {
         await supabase.from("notice_media").insert(
           mediaUrls.map((m) => ({
@@ -201,7 +201,7 @@ export default function NoticeEditPage() {
         )
       }
 
-      // Update tags - delete existing and insert new ones
+
       await supabase.from("notice_tags").delete().eq("notice_id", noticeId)
 
       if (tags.length > 0) {
